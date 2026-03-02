@@ -6,38 +6,32 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 import com.example.arcanaai.data.model.CatMaster
 import kotlin.math.absoluteValue
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 
 // 상담 메뉴 데이터 모델
 data class ConsultationTopic(
@@ -51,21 +45,21 @@ data class ConsultationTopic(
 @SuppressLint("RestrictedApi")
 @Composable
 fun SanctuaryScreen(
-    onNavigateToChat: (String) -> Unit,
+    onNavigateToChat: (String, String) -> Unit, // 👈 (topic, catId)로 변경냥!
     viewModel: SanctuaryViewModel = hiltViewModel()
 ) {
     val catMasters by viewModel.catMasters.collectAsState()
+    val activeCatId by viewModel.activeCatId.collectAsState()
     val pagerState = rememberPagerState(pageCount = { catMasters.size })
     val userName by viewModel.userName.collectAsState()
     val userGems by viewModel.userGems.collectAsState()
     val catMessage by viewModel.catMessage.collectAsState()
 
-    // 해금 다이얼로그 상태
     var showUnlockDialog by remember { mutableStateOf(false) }
     var selectedCatToUnlock by remember { mutableStateOf<CatMaster?>(null) }
 
     LaunchedEffect(pagerState.currentPage) {
-        viewModel.onCatSelected(pagerState.currentPage)
+        viewModel.onCatPagerChanged(pagerState.currentPage)
     }
 
     if (showUnlockDialog && selectedCatToUnlock != null) {
@@ -95,17 +89,14 @@ fun SanctuaryScreen(
                 )
             )
     ) {
-        // 1. 고정 헤더
         Box(modifier = Modifier.padding(16.dp)) {
             TopHeaderBar(userName = userName, gems = userGems)
         }
 
-        // 2. 스크롤 영역
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)
         ) {
-            // A. 캐릭터 섹션
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(
@@ -120,7 +111,7 @@ fun SanctuaryScreen(
                         )
                     }
 
-                    Box(modifier = Modifier.fillMaxWidth().height(320.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
                         HorizontalPager(state = pagerState) { page ->
                             val cat = catMasters[page]
                             CatMasterCard(
@@ -134,19 +125,47 @@ fun SanctuaryScreen(
                                         scaleX = lerp(0.8f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
                                         scaleY = lerp(0.8f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
                                     }
-                                    .clickable {
-                                        if (cat.isLocked) {
-                                            selectedCatToUnlock = cat
-                                            showUnlockDialog = true
-                                        } else {
-                                            viewModel.onCharacterTouched()
-                                        }
-                                    }
                             )
                         }
                     }
 
-                    // 인디케이터
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 해금/선택 버튼
+                    val currentCat = catMasters[pagerState.currentPage]
+                    val isSelected = activeCatId == currentCat.id
+
+                    Button(
+                        onClick = {
+                            if (currentCat.isLocked) {
+                                selectedCatToUnlock = currentCat
+                                showUnlockDialog = true
+                            } else if (!isSelected) {
+                                viewModel.selectCat(currentCat.id)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(0.6f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (currentCat.isLocked) Color(0xFF444444) 
+                                            else if (isSelected) Color(0xFF2E7D32) 
+                                            else Color(0xFFFFD700)
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        enabled = !isSelected || currentCat.isLocked
+                    ) {
+                        if (currentCat.isLocked) {
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("💎 100개로 해금")
+                        } else if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("선택됨 ✨")
+                        } else {
+                            Text("이 마스터 선택하기", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
                     Row(modifier = Modifier.padding(vertical = 12.dp)) {
                         repeat(catMasters.size) { iteration ->
                             val color = if (pagerState.currentPage == iteration) Color(0xFFFFD700) else Color.Gray
@@ -156,7 +175,6 @@ fun SanctuaryScreen(
                 }
             }
 
-            // B. 제목
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
@@ -168,22 +186,24 @@ fun SanctuaryScreen(
                 )
             }
 
-            // C. 메뉴 그리드 (Chunked 사용)
             val topics = listOf(
-                ConsultationTopic("love", "연애 상담", "그 사람의 속마음은?", R.drawable.ic_heart, Color(0xFFFFB6C1)),
-                ConsultationTopic("money", "금전/취업", "나의 재물운 흐름", R.drawable.ic_heart, Color(0xFFFFD700)),
-                ConsultationTopic("choice", "양자택일", "A냐 B냐 그것이 문제", R.drawable.ic_heart, Color(0xFF87CEEB)),
-                ConsultationTopic("free", "자유 상담", "무엇이든 물어보살", R.drawable.ic_heart, Color(0xFFE6E6FA))
+                ConsultationTopic("연애 상담", "연애 상담", "그 사람의 속마음은?", R.drawable.ic_heart, Color(0xFFFFB6C1)),
+                ConsultationTopic("금전 & 취업", "금전/취업", "나의 재물운 흐름", R.drawable.ic_heart, Color(0xFFFFD700)),
+                ConsultationTopic("양자택일", "양자택일", "A냐 B냐 그것이 문제", R.drawable.ic_heart, Color(0xFF87CEEB)),
+                ConsultationTopic("자유상담", "자유 상담", "무엇이든 물어보살", R.drawable.ic_heart, Color(0xFFE6E6FA))
             )
 
-            items(topics.chunked(2)) { pair ->
+            // Chunked를 사용하여 그리드 구현
+            val chunkedTopics = topics.chunked(2)
+            items(chunkedTopics) { pair ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     pair.forEach { topic ->
                         Box(modifier = Modifier.weight(1f)) {
-                            TopicCard(topic = topic, onClick = { onNavigateToChat(topic.id) })
+                            // 👈 선택된 activeCatId를 함께 넘겨준다냥!
+                            TopicCard(topic = topic, onClick = { onNavigateToChat(topic.id, activeCatId) })
                         }
                     }
                     if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
@@ -192,7 +212,6 @@ fun SanctuaryScreen(
         }
     }
 }
-
 
 @Composable
 fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
@@ -204,18 +223,6 @@ fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
                 .fillMaxHeight()
                 .then(if (isLocked) Modifier.blur(12.dp) else Modifier)
         )
-
-        if (isLocked) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.background(Color.Black.copy(0.3f), RoundedCornerShape(12.dp)).padding(16.dp)
-            ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("💎 100", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("해금 필요", color = Color.White, fontSize = 12.sp)
-            }
-        }
     }
 }
 
@@ -228,11 +235,9 @@ fun TopHeaderBar(userName: String, gems: Int) {
     ) {
         Column {
             Text("Good Night 🌙", color = Color.Gray, fontSize = 12.sp)
-            // ⚠️ 수정됨: 고정된 'Traveler' 대신 userName 변수를 사용한다냥!
             Text("${userName}님", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
-        // 수정(Gem) 표시 칩
         Surface(
             color = Color(0x33000000),
             shape = RoundedCornerShape(20.dp),

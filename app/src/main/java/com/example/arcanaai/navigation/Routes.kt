@@ -8,6 +8,6 @@ object Routes {
     const val GRIMOIRE = "grimoire"
     const val GALLERY = "gallery"
     const val ALTAR = "altar"
-    const val CHAT = "chat/{topic}"
+    const val CHAT = "chat/{topic}/{catId}" // 👈 catId 추가냥!
     const val SHUFFLE = "shuffle"
 }
