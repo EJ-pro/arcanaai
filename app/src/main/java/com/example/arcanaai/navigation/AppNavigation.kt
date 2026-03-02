@@ -20,11 +20,9 @@ import com.example.arcanaai.feature.sanctuary.SanctuaryScreen
 import com.example.arcanaai.feature.grimoire.HistoryScreen
 import com.example.arcanaai.feature.gallery.GalleryScreen
 import com.example.arcanaai.feature.altar.SettingsScreen
+import com.example.arcanaai.feature.auth.LoginScreen
 import com.example.arcanaai.feature.splash.SplashScreen
 
-/**
- * 앱의 모든 화면 이동을 관리하는 네비게이션 그래프
- */
 
 @Composable
 fun AppNavigationGraph(navController: NavHostController) {
@@ -36,11 +34,29 @@ fun AppNavigationGraph(navController: NavHostController) {
         enterTransition = { fadeIn(animationSpec = tween(400)) },
         exitTransition = { fadeOut(animationSpec = tween(400)) }
     ) {
+        // 1. 스플래시 화면
         composable(Routes.SPLASH) {
-            SplashScreen(onNavigateToMain = {
-                // 스플래시를 스택에서 제거하고 성전으로 이동
+            SplashScreen(onNavigateToMain = { // 👈 이름을 onNavigateToMain으로 수정!
+                // 카카오 로그인 세션 확인 로직
+                com.kakao.sdk.user.UserApiClient.instance.me { user, error ->
+                    if (user != null) {
+                        navController.navigate(BottomNavItem.Sanctuary.route) {
+                            popUpTo(Routes.SPLASH) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.SPLASH) { inclusive = true }
+                        }
+                    }
+                }
+            })
+        }
+
+        // 2. 로그인 화면
+        composable(Routes.LOGIN) {
+            LoginScreen(onLoginSuccess = {
                 navController.navigate(BottomNavItem.Sanctuary.route) {
-                    popUpTo(Routes.SPLASH) { inclusive = true }
+                    popUpTo(Routes.LOGIN) { inclusive = true }
                 }
             })
         }
@@ -82,16 +98,11 @@ fun AppNavigationGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val topic = backStackEntry.arguments?.getString("topic") ?: "free"
 
-            // TODO: ChatScreen 구현 시 아래 주석 해제
-            /*
-            ChatScreen(
+            // 👈 임시 화면을 지우고 실제 ChatScreen을 연결합니다.
+            com.example.arcanaai.feature.chat.ChatScreen(
                 topic = topic,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToShuffle = { navController.navigate(Routes.SHUFFLE) }
+                onNavigateBack = { navController.popBackStack() }
             )
-            */
-            // 임시용 화면 (아직 ChatScreen이 없을 때)
-            PlaceholderScreen("고양이 마스터와의 $topic 상담실")
         }
 
         // [Detail Screen] 운명의 방 (카드 뽑기)

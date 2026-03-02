@@ -1,6 +1,7 @@
 package com.example.arcanaai.navigation
 
 object Routes {
+    const val LOGIN = "login"
     const val SPLASH = "splash"
     const val MAIN = "main_graph" // BottomBar가 있는 메인 영역
     const val SANCTUARY = "sanctuary"

@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,91 +15,83 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     topic: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
+    val messages by viewModel.messages.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var inputText by remember { mutableStateOf("") }
-    // 임시 메시지 리스트 (나중에 ViewModel과 연결)
-    val messages = remember { mutableStateListOf<Pair<String, Boolean>>() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("$topic 상담실", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F0C29)),
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Text("◀", color = Color.White) // 뒤로가기 아이콘 대신 임시
-                    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F0C29)) // 신비로운 심야 색상
+    ) {
+        // 상단 바
+        TopAppBar(
+            title = { Text("${topic} 상담소", color = Color.White) },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = null, tint = Color.White)
                 }
-            )
-        },
-        bottomBar = {
-            // 메시지 입력창
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .imePadding(), // 키보드 올라올 때 같이 올라오도록
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("고양이 마스터에게 물어보라냥...") },
-                    colors = TextFieldDefaults.colors(
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.1f),
-                        focusedContainerColor = Color.White.copy(alpha = 0.2f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-                IconButton(onClick = {
-                    if (inputText.isNotBlank()) {
-                        messages.add(inputText to true) // 내 메시지 추가
-                        inputText = ""
-                        // TODO: 여기에 Gemini API 호출 로직 추가
-                    }
-                }) {
-                    Icon(Icons.Default.Send, contentDescription = "전송", tint = Color(0xFFFFD700))
-                }
-            }
-        },
-        containerColor = Color(0xFF1A1A2E)
-    ) { padding ->
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+        )
+
+        // 메시지 리스트
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+            reverseLayout = false
         ) {
-            items(messages) { (text, isMe) ->
-                ChatBubble(text = text, isMe = isMe)
+            items(messages) { msg ->
+                ChatBubble(msg)
+            }
+        }
+
+        // 입력창
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("마스터에게 물어보기...") },
+                colors = TextFieldDefaults.textFieldColors(containerColor = Color.White)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    viewModel.sendMessage(inputText)
+                    inputText = ""
+                },
+                enabled = !isLoading
+            ) {
+                Text(if (isLoading) "..." else "전송")
             }
         }
     }
 }
 
 @Composable
-fun ChatBubble(text: String, isMe: Boolean) {
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = if (isMe) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
+fun ChatBubble(message: ChatMessage) {
+    val alignment = if (message.isFromUser) Alignment.End else Alignment.Start
+    val color = if (message.isFromUser) Color(0xFF6200EE) else Color(0xFF37474F)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalAlignment = alignment) {
         Surface(
-            color = if (isMe) Color(0xFF3D3D70) else Color(0xFF2E2E4E),
-            shape = MaterialTheme.shapes.medium,
-            tonalElevation = 2.dp
+            color = color,
+            shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = text,
+                text = message.content,
                 modifier = Modifier.padding(12.dp),
                 color = Color.White
             )

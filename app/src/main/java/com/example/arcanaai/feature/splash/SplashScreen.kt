@@ -43,7 +43,7 @@ fun SplashScreen(onNavigateToMain: () -> Unit) {
             modifier = Modifier.alpha(alphaAnim.value)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground), // 로고 이미지
+                painter = painterResource(id = R.drawable.arcanaai_logo), // 로고 이미지
                 contentDescription = "Logo",
                 modifier = Modifier.size(120.dp)
             )

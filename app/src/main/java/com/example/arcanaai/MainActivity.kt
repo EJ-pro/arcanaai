@@ -1,6 +1,8 @@
 package com.example.arcanaai
 
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -42,6 +44,7 @@ import com.example.arcanaai.feature.grimoire.HistoryScreen
 import com.example.arcanaai.feature.sanctuary.SanctuaryScreen
 import com.example.arcanaai.navigation.BottomNavItem
 import dagger.hilt.android.AndroidEntryPoint
+import java.security.MessageDigest
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -56,6 +59,16 @@ class MainActivity : ComponentActivity() {
                     MainAppContent()
                 }
             }
+        }
+        try {
+            val info = packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            for (signature in info.signatures!!) {
+                val md = MessageDigest.getInstance("SHA")
+                md.update(signature.toByteArray())
+                Log.d("KeyHash", Base64.encodeToString(md.digest(), Base64.DEFAULT))
+            }
+        } catch (e: Exception) {
+            Log.e("KeyHash", "해시를 가져올 수 없음", e)
         }
     }
 }
@@ -72,7 +85,6 @@ fun MainAppContent() {
         BottomNavItem.Gallery,
         BottomNavItem.Altar
     )
-
     val showBottomBar = bottomBarItems.any { it.route == currentRoute }
 
     Scaffold(
@@ -87,7 +99,8 @@ fun MainAppContent() {
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            AppNavigationGraph(navController)
+            // [수정] 내부에 정의된 함수가 아니라 navigation 패키지의 함수를 호출해야 함
+            com.example.arcanaai.navigation.AppNavigationGraph(navController = navController)
         }
     }
 }
@@ -136,53 +149,6 @@ fun ArcanaBottomBar(
                     unselectedIconColor = Color.Gray,
                     unselectedTextColor = Color.Gray
                 )
-            )
-        }
-    }
-}
-
-@Composable
-fun AppNavigationGraph(navController: NavHostController) {
-    NavHost(
-        navController = navController,
-        startDestination = BottomNavItem.Sanctuary.route
-    ) {
-        composable(BottomNavItem.Sanctuary.route) {
-            SanctuaryScreen(
-                onNavigateToChat = { topic ->
-                    navController.navigate("chat/$topic")
-                }
-            )
-        }
-
-        // [Tab 2] 마도서: 상담 기록 화면
-        composable(BottomNavItem.Grimoire.route) {
-            // PlaceholderScreen 대신 실제 HistoryScreen을 호출합니다.
-            HistoryScreen()
-        }
-
-        // [Tab 3] 도감: 타로 카드 컬렉션 화면
-        composable(BottomNavItem.Gallery.route) {
-            // 아직 GalleryScreen을 만들지 않았다면 일단 두시고,
-            // 만들었다면 교체하세요.
-            GalleryScreen()
-        }
-
-        // [Tab 4] 제단: 설정 및 프로필 화면
-        composable(BottomNavItem.Altar.route) {
-            SettingsScreen()
-        }
-
-        composable(
-            route = "chat/{topic}",
-            arguments = listOf(navArgument("topic") { type = NavType.StringType })
-        ) {
-                backStackEntry ->
-            val topic = backStackEntry.arguments?.getString("topic") ?: "일반"
-
-            ChatScreen(
-                topic = topic,
-                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
