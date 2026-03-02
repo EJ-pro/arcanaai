@@ -15,17 +15,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
 import com.example.arcanaai.core.designsystem.components.TarotCardView
@@ -40,6 +44,9 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedCards by viewModel.selectedCards.collectAsState()
+    
+    // 🔍 카드 확대를 위한 상태냥!
+    var zoomedCard by remember { mutableStateOf<TarotCard?>(null) }
 
     Box(
         modifier = Modifier
@@ -53,7 +60,7 @@ fun ChatScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // 1. 상단 바
             TopAppBar(
-                title = { Text(text = "${topic}", color = Color.White) },
+                title = { Text(text = "${topic}의 운명", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
@@ -62,7 +69,7 @@ fun ChatScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
 
-            // 2. 고양이 마스터 영역 (높이 제한을 풀고 여백을 줬다냥!)
+            // 2. 고양이 마스터 영역
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -73,7 +80,7 @@ fun ChatScreen(
                 Image(
                     painter = painterResource(id = viewModel.catImageRes),
                     contentDescription = viewModel.catName,
-                    modifier = Modifier.size(100.dp) // 크기를 살짝 조절냥
+                    modifier = Modifier.size(100.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
@@ -85,18 +92,18 @@ fun ChatScreen(
                         text = if (uiState is TarotUiState.Picking) {
                             "반갑다냥! 네 고민을 생각하며\n카드 3장을 신중히 골라보라냥. (${selectedCards.size}/3)"
                         } else {
-                            "운명의 결과가 나왔다냥!\n집사의 미래를 잘 들어보라냥."
+                            "운명의 결과가 나왔다냥!\n카드를 누르면 크게 볼 수 있다냥."
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         fontSize = 13.sp,
                         color = Color.Black,
                         textAlign = TextAlign.Center,
-                        lineHeight = 18.sp // 줄 간격을 줘서 더 잘 보이게냥!
+                        lineHeight = 18.sp
                     )
                 }
             }
 
-            // 3. 메인 콘텐츠 (선택 중 vs 결과 창)
+            // 3. 메인 콘텐츠
             AnimatedContent(
                 targetState = uiState,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -116,11 +123,20 @@ fun ChatScreen(
                         CardResultLayout(
                             selectedCards = state.selectedCards,
                             interpretation = state.interpretation,
-                            onReset = { viewModel.reset() }
+                            onReset = { viewModel.reset() },
+                            onCardZoom = { zoomedCard = it } // 👈 결과창에서 카드 클릭 시 호출냥!
                         )
                     }
                 }
             }
+        }
+
+        // 🔍 카드 확대 다이얼로그 (전체 화면급)
+        zoomedCard?.let { card ->
+            CardZoomDialog(
+                card = card,
+                onDismiss = { zoomedCard = null }
+            )
         }
     }
 }
@@ -202,7 +218,8 @@ fun CardPickingLayout(
 fun CardResultLayout(
     selectedCards: List<TarotCard>,
     interpretation: String,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    onCardZoom: (TarotCard) -> Unit // 👈 줌 함수 추가냥!
 ) {
     Column(
         modifier = Modifier
@@ -211,7 +228,7 @@ fun CardResultLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // 결과창: 1:1 비율로 크게 뒤집어서 표시냥!
+        // 결과창: 1:1 비율 카드들 (누르면 확대된다냥!)
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -221,7 +238,9 @@ fun CardResultLayout(
                     card = card,
                     isFlipped = true,
                     useSquareRatio = true,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onCardZoom(card) } // 👈 클릭 시 줌!
                 )
             }
         }
@@ -259,6 +278,75 @@ fun CardResultLayout(
             shape = RoundedCornerShape(12.dp)
         ) {
             Text("다시 뽑아볼래냥", color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun CardZoomDialog(card: TarotCard, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.9f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)
+            ) {
+                // 닫기 버튼
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 큰 카드 이미지 (본래 타로 비율 2:3 정도로 보여주기냥)
+                TarotCardView(
+                    card = card,
+                    isFlipped = true,
+                    useSquareRatio = false,
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .aspectRatio(0.625f) // 5:8 비율 정도냥
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = card.name,
+                    color = Color(0xFFFFD700),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = card.keyword,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = card.description,
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            }
         }
     }
 }
