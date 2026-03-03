@@ -41,6 +41,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
 import com.example.arcanaai.data.model.CardBack
+import com.example.arcanaai.feature.sanctuary.TopHeaderBar
 import kotlinx.coroutines.delay
 
 private val MysticDark = Color(0xFF0F0C29)
@@ -64,8 +65,8 @@ fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
     var isNotificationEnabled by remember { mutableStateOf(true) }
     var isSoundEnabled by remember { mutableStateOf(true) }
     
-    // 구매 확인 다이얼로그 상태
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showGemPurchaseDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -75,19 +76,27 @@ fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
-            Text(text = "The Altar", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
+            TopHeaderBar(
+                userName = "운명의 여행자", 
+                gems = userGems,
+                onGemClick = { showGemPurchaseDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(text = "The Altar", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
             ProfileCard()
             Spacer(modifier = Modifier.height(24.dp))
-            GemStatusCard(userGems)
-            Spacer(modifier = Modifier.height(24.dp))
             
-            // 가챠 시작 버튼 섹션 (클릭 시 확인 다이얼로그 띄움냥)
+            GemStatusCard(
+                gems = userGems, 
+                onAddClick = { showGemPurchaseDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
             GachaTriggerSection(onDraw = { 
-                if (userGems >= 100) {
-                    showConfirmDialog = true 
-                } else {
-                    Toast.makeText(context, "수정이 부족하다냥! 💎", Toast.LENGTH_SHORT).show()
-                }
+                if (userGems >= 100) showConfirmDialog = true 
+                else Toast.makeText(context, "수정이 부족하다냥! 💎", Toast.LENGTH_SHORT).show()
             })
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -104,36 +113,194 @@ fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // 💰 구매 확인 다이얼로그
         if (showConfirmDialog) {
             AlertDialog(
                 onDismissRequest = { showConfirmDialog = false },
                 title = { Text("운명의 계약", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("수정 100개를 사용하여 새로운 카드 뒷면을 뽑으시겠습니까?\n(중복은 나오지 않는다냥! 🐾)", color = Color.White) },
+                text = { Text("수정 100개를 사용하여 새로운 카드 뒷면을 뽑으시겠습니까?", color = Color.White) },
                 containerColor = CardBg,
                 confirmButton = {
-                    TextButton(onClick = {
-                        showConfirmDialog = false
-                        viewModel.drawCardBack()
-                    }) {
-                        Text("네, 뽑겠습니다냥", color = Gold, fontWeight = FontWeight.Bold)
-                    }
+                    TextButton(onClick = { showConfirmDialog = false; viewModel.drawCardBack() }) { Text("네, 뽑겠습니다냥", color = Gold, fontWeight = FontWeight.Bold) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showConfirmDialog = false }) {
-                        Text("아니오", color = Color.Gray)
-                    }
+                    TextButton(onClick = { showConfirmDialog = false }) { Text("아니오", color = Color.Gray) }
                 }
             )
         }
 
-        // 🎰 전체 화면 가챠 오버레이
-        if (showOverlay) {
-            GachaFullScreenOverlay(
-                isRunning = isGachaRunning,
-                result = lastResult,
-                onDismiss = { viewModel.dismissGacha() }
+        if (showGemPurchaseDialog) {
+            GemPurchaseDialog(
+                onDismiss = { showGemPurchaseDialog = false },
+                onPurchase = { amount ->
+                    viewModel.addGems(amount)
+                    showGemPurchaseDialog = false
+                    Toast.makeText(context, "수정 $amount 개가 충전되었습니다냥! ✨", Toast.LENGTH_SHORT).show()
+                }
             )
+        }
+
+        if (showOverlay) {
+            GachaFullScreenOverlay(isRunning = isGachaRunning, result = lastResult, onDismiss = { viewModel.dismissGacha() })
+        }
+    }
+}
+
+@Composable
+fun GemPurchaseDialog(onDismiss: () -> Unit, onPurchase: (Int) -> Unit) {
+    val purchaseItems = listOf(
+        Triple(100, "수정 묶음", "₩ 1,100"),
+        Triple(300, "수정 주머니", "₩ 3,300"),
+        Triple(500, "수정 상자", "₩ 5,500"),
+        Triple(1000, "거대 수정", "₩ 11,000"),
+        Triple(2500, "고대 보물", "₩ 25,000"),
+        Triple(5000, "아르카나 정수", "₩ 49,000")
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight()
+                .clip(RoundedCornerShape(28.dp)),
+            color = CardBg
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "수정 충전소", 
+                    color = Color.White, 
+                    fontSize = 24.sp, 
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(bottom = 20.dp)
+                )
+
+                // 3줄 2열 배치 (한 화면에 쏙 들어오게냥!)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    purchaseItems.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowItems.forEach { (amount, label, price) ->
+                                PurchaseItemCard(
+                                    amount = amount,
+                                    label = label,
+                                    price = price,
+                                    onClick = { onPurchase(amount) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("다음에 하기", color = Color.Gray, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PurchaseItemCard(
+    amount: Int,
+    label: String,
+    price: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Gold.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // 보석 아이콘 (크게!)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(
+                        brush = Brush.radialGradient(listOf(Gold.copy(0.2f), Color.Transparent)),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = when {
+                        amount >= 5000 -> "🌌"
+                        amount >= 2500 -> "👑"
+                        amount >= 1000 -> "🔮"
+                        amount >= 500 -> "📦"
+                        amount >= 300 -> "💰"
+                        else -> "💎"
+                    },
+                    fontSize = 32.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(label, color = TextGray, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text("$amount", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            // 가격 태그
+            Surface(
+                color = Gold,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = price,
+                    color = Color.Black,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GemStatusCard(gems: Int, onAddClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(0.3f), RoundedCornerShape(16.dp))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("보유한 수정", color = Color.Gray, fontSize = 12.sp)
+                Text("💎 $gems", color = Gold, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+            IconButton(
+                onClick = onAddClick,
+                modifier = Modifier.background(Gold, CircleShape).size(36.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Gems", tint = Color.Black)
+            }
         }
     }
 }
@@ -283,23 +450,6 @@ fun ProfileCard() {
                 Text(text = "운명의 여행자", color = TextWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(text = "Lv. 1 Wanderer", color = Gold, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
-        }
-    }
-}
-
-@Composable
-fun GemStatusCard(gems: Int) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(0.3f), RoundedCornerShape(16.dp))
-    ) {
-        Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("보유한 수정", color = Color.Gray, fontSize = 12.sp)
-                Text("💎 $gems", color = Gold, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
-            Icon(Icons.Default.AddCircle, contentDescription = null, tint = Gold, modifier = Modifier.size(32.dp))
         }
     }
 }

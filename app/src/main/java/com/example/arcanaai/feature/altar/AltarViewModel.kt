@@ -36,12 +36,10 @@ class AltarViewModel @Inject constructor() : ViewModel() {
     private val _lastGachaResult = MutableStateFlow<CardBack?>(null)
     val lastGachaResult = _lastGachaResult.asStateFlow()
 
-    // 가챠 대화상자/오버레이 표시 여부
     private val _showGachaOverlay = MutableStateFlow(false)
     val showGachaOverlay = _showGachaOverlay.asStateFlow()
 
     fun drawCardBack() {
-        // 중복 방지: 아직 소유하지 않은 카드들만 필터링
         val unownedCards = _cardBacks.value.filter { !it.isOwned }
         
         if (_userGems.value < 100 || _isGachaRunning.value || unownedCards.isEmpty()) return
@@ -50,14 +48,12 @@ class AltarViewModel @Inject constructor() : ViewModel() {
             _userGems.value -= 100
             _isGachaRunning.value = true
             _showGachaOverlay.value = true
-            _lastGachaResult.value = null
+            _lastResultSet(null)
 
-            // 도파민 터지는 연출 시간 (3초로 연장냥!)
             delay(3000)
 
             val result = unownedCards.random()
 
-            // 소유권 업데이트
             _cardBacks.value = _cardBacks.value.map { 
                 if (it.id == result.id) it.copy(isOwned = true) else it
             }
@@ -65,6 +61,14 @@ class AltarViewModel @Inject constructor() : ViewModel() {
             _lastGachaResult.value = result
             _isGachaRunning.value = false
         }
+    }
+
+    private fun _lastResultSet(value: CardBack?) {
+        _lastGachaResult.value = value
+    }
+
+    fun addGems(amount: Int) {
+        _userGems.value += amount
     }
 
     fun dismissGacha() {

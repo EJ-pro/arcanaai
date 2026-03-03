@@ -6,17 +6,19 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    // 🔮 JSON 변환을 위한 시리얼라이제이션 마법냥!
+    alias(libs.plugins.kotlin.serialization)
 }
 
-// local.properties 파일에서 키 읽어오기
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
-// ⚠️ 수정됨: 프로퍼티 이름을 사용해야 한다냥!
 val kakaoKey = localProperties.getProperty("KAKAO_NATIVE_APP_KEY") ?: ""
 val geminiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
+val supabaseUrl = localProperties.getProperty("SUPABASE_URL") ?: ""
+val supabaseKey = localProperties.getProperty("SUPABASE_ANON_KEY") ?: ""
 
 android {
     namespace = "com.example.arcanaai"
@@ -31,11 +33,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // BuildConfig에 키 추가
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
         
-        // Manifest에서 쓸 수 있게 manifestPlaceholders에 추가
         manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoKey
     }
 
@@ -57,7 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true // BuildConfig 활성화
+        buildConfig = true
     }
 }
 
@@ -84,9 +86,16 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("com.kakao.sdk:v2-user:2.20.1")
-    implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
+    
     // Gemini
     implementation(libs.generativeai)
+
+    // 🏰 Supabase & Ktor 마법 재료들냥!
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.gotrue)
+    implementation(libs.supabase.realtime)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.core)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

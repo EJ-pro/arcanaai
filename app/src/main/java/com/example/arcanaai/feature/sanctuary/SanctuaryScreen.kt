@@ -1,6 +1,7 @@
 package com.example.arcanaai.feature.sanctuary
 
 import android.annotation.SuppressLint
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
@@ -23,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
 import com.example.arcanaai.data.model.CatMaster
+import com.example.arcanaai.feature.altar.GemPurchaseDialog
 import kotlin.math.absoluteValue
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 
@@ -45,7 +49,7 @@ data class ConsultationTopic(
 @SuppressLint("RestrictedApi")
 @Composable
 fun SanctuaryScreen(
-    onNavigateToChat: (String, String) -> Unit, // 👈 (topic, catId)로 변경냥!
+    onNavigateToChat: (String, String) -> Unit,
     viewModel: SanctuaryViewModel = hiltViewModel()
 ) {
     val catMasters by viewModel.catMasters.collectAsState()
@@ -55,8 +59,12 @@ fun SanctuaryScreen(
     val userGems by viewModel.userGems.collectAsState()
     val catMessage by viewModel.catMessage.collectAsState()
 
+    val context = LocalContext.current
     var showUnlockDialog by remember { mutableStateOf(false) }
     var selectedCatToUnlock by remember { mutableStateOf<CatMaster?>(null) }
+    
+    // 💎 젬 충전 다이얼로그 상태냥!
+    var showGemPurchaseDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(pagerState.currentPage) {
         viewModel.onCatPagerChanged(pagerState.currentPage)
@@ -80,6 +88,18 @@ fun SanctuaryScreen(
         )
     }
 
+    // 💎 메인 화면용 젬 충전 마법
+    if (showGemPurchaseDialog) {
+        GemPurchaseDialog(
+            onDismiss = { showGemPurchaseDialog = false },
+            onPurchase = { amount ->
+                viewModel.addGems(amount)
+                showGemPurchaseDialog = false
+                Toast.makeText(context, "수정 $amount 개가 충전되었습니다냥! ✨", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -90,7 +110,12 @@ fun SanctuaryScreen(
             )
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
-            TopHeaderBar(userName = userName, gems = userGems)
+            // 👈 젬 카드를 누르면 충전 창이 뜨게 연결했다냥!
+            TopHeaderBar(
+                userName = userName, 
+                gems = userGems,
+                onGemClick = { showGemPurchaseDialog = true }
+            )
         }
 
         LazyColumn(
@@ -131,7 +156,6 @@ fun SanctuaryScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 해금/선택 버튼
                     val currentCat = catMasters[pagerState.currentPage]
                     val isSelected = activeCatId == currentCat.id
 
@@ -193,7 +217,6 @@ fun SanctuaryScreen(
                 ConsultationTopic("자유상담", "자유 상담", "무엇이든 물어보살", R.drawable.ic_heart, Color(0xFFE6E6FA))
             )
 
-            // Chunked를 사용하여 그리드 구현
             val chunkedTopics = topics.chunked(2)
             items(chunkedTopics) { pair ->
                 Row(
@@ -202,7 +225,6 @@ fun SanctuaryScreen(
                 ) {
                     pair.forEach { topic ->
                         Box(modifier = Modifier.weight(1f)) {
-                            // 👈 선택된 activeCatId를 함께 넘겨준다냥!
                             TopicCard(topic = topic, onClick = { onNavigateToChat(topic.id, activeCatId) })
                         }
                     }
@@ -214,20 +236,7 @@ fun SanctuaryScreen(
 }
 
 @Composable
-fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Image(
-            painter = painterResource(id = cat.imageRes),
-            contentDescription = cat.name,
-            modifier = Modifier
-                .fillMaxHeight()
-                .then(if (isLocked) Modifier.blur(12.dp) else Modifier)
-        )
-    }
-}
-
-@Composable
-fun TopHeaderBar(userName: String, gems: Int) {
+fun TopHeaderBar(userName: String, gems: Int, onGemClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -238,18 +247,37 @@ fun TopHeaderBar(userName: String, gems: Int) {
             Text("${userName}님", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
+        // 💎 충전 가능한 젬 카드냥!
         Surface(
             color = Color(0x33000000),
             shape = RoundedCornerShape(20.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700))
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+            modifier = Modifier.clickable { onGemClick() }
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("💎 $gems", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
             }
         }
+    }
+}
+
+// ... CatMasterCard, TopicCard 등은 동일 (생략 가능)
+
+@Composable
+fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Image(
+            painter = painterResource(id = cat.imageRes),
+            contentDescription = cat.name,
+            modifier = Modifier
+                .fillMaxHeight()
+                .then(if (isLocked) Modifier.blur(12.dp) else Modifier)
+        )
     }
 }
 

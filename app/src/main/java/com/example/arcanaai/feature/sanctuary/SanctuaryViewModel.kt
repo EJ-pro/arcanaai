@@ -47,11 +47,9 @@ class SanctuaryViewModel @Inject constructor() : ViewModel() {
     ))
     val catMasters = _catMasters.asStateFlow()
 
-    // 현재 페이저에서 보고 있는 고양이 인덱스
     private val _viewingCatIndex = MutableStateFlow(0)
     val viewingCatIndex = _viewingCatIndex.asStateFlow()
 
-    // 실제로 선택(동행) 중인 고양이 ID
     private val _activeCatId = MutableStateFlow("arcana")
     val activeCatId = _activeCatId.asStateFlow()
 
@@ -80,6 +78,7 @@ class SanctuaryViewModel @Inject constructor() : ViewModel() {
     private val _userName = MutableStateFlow("Traveler")
     val userName = _userName.asStateFlow()
 
+    // 💎 젬 상태 (실제 앱에서는 전역 관리가 필요함냥!)
     private val _userGems = MutableStateFlow(300)
     val userGems = _userGems.asStateFlow()
 
@@ -91,6 +90,10 @@ class SanctuaryViewModel @Inject constructor() : ViewModel() {
 
     init {
         loadKakaoUserInfo()
+    }
+
+    fun addGems(amount: Int) {
+        _userGems.value += amount
     }
 
     fun loadKakaoUserInfo() {
@@ -124,7 +127,6 @@ class SanctuaryViewModel @Inject constructor() : ViewModel() {
             _catMasters.value = _catMasters.value.map { cat ->
                 if (cat.id == catId) cat.copy(isLocked = false) else cat
             }
-            // 해금 즉시 선택되도록 하거나, 버튼을 누르게 유도
             val unlockedCat = _catMasters.value.find { it.id == catId }
             _catMessage.value = "${unlockedCat?.name}가 이제 당신과 함께한다냥! 선택하기 버튼을 눌러보라냥. ✨"
         } else {
