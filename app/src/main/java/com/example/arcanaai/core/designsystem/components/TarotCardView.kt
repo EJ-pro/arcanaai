@@ -25,7 +25,8 @@ fun TarotCardView(
     modifier: Modifier = Modifier,
     card: TarotCard? = null,
     isFlipped: Boolean = false,
-    useSquareRatio: Boolean = false
+    useSquareRatio: Boolean = false,
+    backImageRes: Int = R.drawable.img_card_back // 👈 커스텀 뒷면 이미지 추가냥!
 ) {
     val baseModifier = if (useSquareRatio) {
         modifier.aspectRatio(1f)
@@ -59,8 +60,9 @@ fun TarotCardView(
                 }
             }
         } else {
+            // 👈 집사가 장착한 뒷면으로 보여준다냥!
             Image(
-                painter = painterResource(id = R.drawable.img_card_back),
+                painter = painterResource(id = backImageRes),
                 contentDescription = "Tarot Card Back",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -44,8 +45,8 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedCards by viewModel.selectedCards.collectAsState()
+    val equippedBackRes by viewModel.equippedBackRes.collectAsState()
     
-    // 🔍 카드 확대를 위한 상태냥!
     var zoomedCard by remember { mutableStateOf<TarotCard?>(null) }
 
     Box(
@@ -58,7 +59,6 @@ fun ChatScreen(
             )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // 1. 상단 바
             TopAppBar(
                 title = { Text(text = "${topic}의 운명", color = Color.White) },
                 navigationIcon = {
@@ -69,7 +69,6 @@ fun ChatScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
 
-            // 2. 고양이 마스터 영역
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -103,7 +102,6 @@ fun ChatScreen(
                 }
             }
 
-            // 3. 메인 콘텐츠
             AnimatedContent(
                 targetState = uiState,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -116,7 +114,8 @@ fun ChatScreen(
                             allCards = viewModel.allCards,
                             selectedCards = selectedCards,
                             onCardClick = { viewModel.onCardClick(it) },
-                            onComplete = { viewModel.completeSelection() }
+                            onComplete = { viewModel.completeSelection() },
+                            equippedBackRes = equippedBackRes
                         )
                     }
                     is TarotUiState.Result -> {
@@ -124,19 +123,15 @@ fun ChatScreen(
                             selectedCards = state.selectedCards,
                             interpretation = state.interpretation,
                             onReset = { viewModel.reset() },
-                            onCardZoom = { zoomedCard = it } // 👈 결과창에서 카드 클릭 시 호출냥!
+                            onCardZoom = { zoomedCard = it }
                         )
                     }
                 }
             }
         }
 
-        // 🔍 카드 확대 다이얼로그 (전체 화면급)
         zoomedCard?.let { card ->
-            CardZoomDialog(
-                card = card,
-                onDismiss = { zoomedCard = null }
-            )
+            CardZoomDialog(card = card, onDismiss = { zoomedCard = null })
         }
     }
 }
@@ -146,13 +141,13 @@ fun CardPickingLayout(
     allCards: List<TarotCard>,
     selectedCards: List<TarotCard>,
     onCardClick: (TarotCard) -> Unit,
-    onComplete: () -> Unit
+    onComplete: () -> Unit,
+    equippedBackRes: Int
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 선택된 카드들 미리보기 (뒷면)
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -161,20 +156,21 @@ fun CardPickingLayout(
             horizontalArrangement = Arrangement.Center
         ) {
             items(selectedCards) { card ->
-                TarotCardView(
-                    card = card,
-                    isFlipped = false,
+                Image(
+                    painter = painterResource(id = equippedBackRes),
+                    contentDescription = null,
                     modifier = Modifier
                         .size(65.dp, 100.dp)
                         .padding(horizontal = 4.dp)
-                        .clickable { onCardClick(card) } 
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onCardClick(card) },
+                    contentScale = ContentScale.Crop
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 펼쳐진 카드들 (그리드)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(70.dp),
             modifier = Modifier
@@ -185,20 +181,26 @@ fun CardPickingLayout(
         ) {
             items(allCards) { card ->
                 val isSelected = selectedCards.any { it.id == card.id }
-                TarotCardView(
-                    isFlipped = false,
+                Box(
                     modifier = Modifier
                         .size(70.dp, 110.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { onCardClick(card) }
                         .then(
-                            if (isSelected) Modifier.background(Color.Yellow.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            if (isSelected) Modifier.background(Color.Yellow.copy(alpha = 0.4f))
                             else Modifier
                         )
-                )
+                ) {
+                    Image(
+                        painter = painterResource(id = equippedBackRes),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
         }
 
-        // 선택 완료 버튼
         Button(
             onClick = onComplete,
             enabled = selectedCards.size == 3,
@@ -219,7 +221,7 @@ fun CardResultLayout(
     selectedCards: List<TarotCard>,
     interpretation: String,
     onReset: () -> Unit,
-    onCardZoom: (TarotCard) -> Unit // 👈 줌 함수 추가냥!
+    onCardZoom: (TarotCard) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -228,7 +230,6 @@ fun CardResultLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // 결과창: 1:1 비율 카드들 (누르면 확대된다냥!)
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -240,12 +241,11 @@ fun CardResultLayout(
                     useSquareRatio = true,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onCardZoom(card) } // 👈 클릭 시 줌!
+                        .clickable { onCardZoom(card) }
                 )
             }
         }
 
-        // 해석 텍스트 박스
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,53 +299,25 @@ fun CardZoomDialog(card: TarotCard, onDismiss: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(24.dp)
             ) {
-                // 닫기 버튼
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                 }
-                
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // 큰 카드 이미지 (본래 타로 비율 2:3 정도로 보여주기냥)
                 TarotCardView(
                     card = card,
                     isFlipped = true,
                     useSquareRatio = false,
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .aspectRatio(0.625f) // 5:8 비율 정도냥
+                    modifier = Modifier.fillMaxWidth(0.8f).aspectRatio(0.625f)
                 )
-
                 Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = card.name,
-                    color = Color(0xFFFFD700),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
+                Text(text = card.name, color = Color(0xFFFFD700), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = card.keyword,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                
+                Text(text = card.keyword, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = card.description,
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
-                )
+                Text(text = card.description, color = Color.LightGray, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 20.sp)
             }
         }
     }

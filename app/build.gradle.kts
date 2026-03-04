@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
-    // 🔮 JSON 변환을 위한 시리얼라이제이션 마법냥!
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -90,12 +89,18 @@ dependencies {
     // Gemini
     implementation(libs.generativeai)
 
-    // 🏰 Supabase & Ktor 마법 재료들냥!
+    // Supabase
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.gotrue)
     implementation(libs.supabase.realtime)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
+
+    // 💰 Google Play Billing
+    implementation(libs.billing.ktx)
+    
+    // 🎨 Extended Icons
+    implementation("androidx.compose.material:material-icons-extended:1.7.6")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

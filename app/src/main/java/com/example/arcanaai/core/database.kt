@@ -1,4 +1,1 @@
-package com.example.arcanaai.core
-
-class database {
-}
+// 이 파일은 패키지 충돌을 피하기 위해 비워두었다냥! 🐾

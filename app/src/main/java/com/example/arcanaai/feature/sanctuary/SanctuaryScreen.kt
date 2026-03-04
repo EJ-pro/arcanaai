@@ -13,9 +13,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,12 +36,12 @@ import com.example.arcanaai.feature.altar.GemPurchaseDialog
 import kotlin.math.absoluteValue
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 
-// 상담 메뉴 데이터 모델
+// 🔮 아이콘 타입을 ImageVector로 변경했다냥!
 data class ConsultationTopic(
     val id: String,
     val title: String,
     val description: String,
-    val iconRes: Int,
+    val icon: ImageVector,
     val color: Color
 )
 
@@ -207,11 +206,12 @@ fun SanctuaryScreen(
                 )
             }
 
+            // 🔮 주제별 아이콘 대교체냥!
             val topics = listOf(
-                ConsultationTopic("연애 상담", "연애 상담", "그 사람의 속마음은?", R.drawable.ic_heart, Color(0xFFFFB6C1)),
-                ConsultationTopic("금전 & 취업", "금전/취업", "나의 재물운 흐름", R.drawable.ic_heart, Color(0xFFFFD700)),
-                ConsultationTopic("양자택일", "양자택일", "A냐 B냐 그것이 문제", R.drawable.ic_heart, Color(0xFF87CEEB)),
-                ConsultationTopic("자유상담", "자유 상담", "무엇이든 물어보살", R.drawable.ic_heart, Color(0xFFE6E6FA))
+                ConsultationTopic("연애 상담", "연애 상담", "그 사람의 속마음은?", Icons.Default.Favorite, Color(0xFFFFB6C1)),
+                ConsultationTopic("금전 & 취업", "금전/취업", "나의 재물운 흐름", Icons.Default.MonetizationOn, Color(0xFFFFD700)),
+                ConsultationTopic("양자택일", "양자택일", "A냐 B냐 그것이 문제", Icons.Default.CompareArrows, Color(0xFF87CEEB)),
+                ConsultationTopic("자유상담", "자유 상담", "무엇이든 물어보살", Icons.Default.SelfImprovement, Color(0xFFE6E6FA))
             )
 
             val chunkedTopics = topics.chunked(2)
@@ -292,8 +292,9 @@ fun TopicCard(topic: ConsultationTopic, onClick: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // 🔮 이제 ImageVector를 사용한다냥!
             Icon(
-                painter = painterResource(id = topic.iconRes),
+                imageVector = topic.icon,
                 contentDescription = null,
                 tint = topic.color,
                 modifier = Modifier.size(32.dp)

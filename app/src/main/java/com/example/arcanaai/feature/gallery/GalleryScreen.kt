@@ -11,54 +11,36 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
+import com.example.arcanaai.data.model.CardBack
+import com.example.arcanaai.feature.altar.SectionTitle
 
-// 테마 컬러
-private val MysticDark = Color(0xFF1A1A2E)
+private val MysticDark = Color(0xFF0F0C29)
+private val CardBg = Color(0xFF1A1A2E)
 private val Gold = Color(0xFFFFD700)
-private val LockedGray = Color(0xFF4A4A6A)
+private val LockedGray = Color(0xFF2A2A3E)
 
-// UI 테스트용 더미 데이터 클래스
-data class GalleryItem(
-    val id: Int,
-    val name: String,
-    val isCollected: Boolean, // 수집 여부
-    val imageRes: Int = R.drawable.ic_launcher_foreground // 임시 이미지
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GalleryScreen() {
-    // 실제로는 ViewModel에서 DB 데이터를 가져와야 함
-    // 여기서는 UI 확인을 위해 더미 데이터 생성 (78장)
-    val galleryItems = remember {
-        List(78) { index ->
-            GalleryItem(
-                id = index,
-                name = if (index < 22) "Major $index" else "Minor $index",
-                isCollected = index % 3 != 0 // 3장에 1장은 잠겨있도록 설정 (테스트용)
-            )
-        }
-    }
-
-    val collectedCount = galleryItems.count { it.isCollected }
-    val progress = collectedCount / 78f
+fun GalleryScreen(viewModel: GalleryViewModel = hiltViewModel()) {
+    val cardBacks by viewModel.cardBacks.collectAsState()
+    val equippedId by viewModel.equippedBackId.collectAsState()
+    
+    val ownedCount = cardBacks.count { it.isOwned }
+    val totalCount = cardBacks.size
 
     Column(
         modifier = Modifier
@@ -66,156 +48,87 @@ fun GalleryScreen() {
             .background(MysticDark)
             .padding(16.dp)
     ) {
-        // 1. 헤더 (타이틀 + 진행률)
-        Text(
-            text = "Tarot Gallery",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Text(text = "Collection", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
 
-        // 수집 진행률 바
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2E4A)),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            colors = CardDefaults.cardColors(containerColor = CardBg),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(0.2f), RoundedCornerShape(20.dp))
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Collection Progress", color = Gold, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "$collectedCount / 78 Cards",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("카드 뒷면 수집도", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("$ownedCount / $totalCount 획득함", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                 }
-                // 원형 진행률 표시
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.size(50.dp),
-                        color = Gold,
-                        trackColor = Color.Black.copy(alpha = 0.3f),
-                    )
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                CircularProgressIndicator(progress = { ownedCount.toFloat() / totalCount }, color = Gold, strokeWidth = 6.dp, modifier = Modifier.size(52.dp), trackColor = Color.White.copy(0.1f))
             }
         }
 
-        // 2. 검색 및 필터 (수정됨)
-        OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            placeholder = { Text("Search card...", color = Color.Gray) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Gold) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
+        Spacer(modifier = Modifier.height(24.dp))
 
-            // [변경] 최신 문법 적용
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Gold,
-                unfocusedBorderColor = Color.Gray,
-                cursorColor = Gold,
-                focusedLabelColor = Gold,
-                unfocusedLabelColor = Color.Gray,
-                // 배경색을 투명하게 하려면
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent
-            ),
-
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true
-        )
-
-        // 3. 카드 그리드 (3열)
+        SectionTitle("뒷면 갤러리 (장착하려면 누르라냥!)")
+        
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3), // 한 줄에 3개
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 80.dp) // 하단 탭 가리지 않게 여백
+            columns = GridCells.Fixed(3),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            items(galleryItems) { item ->
-                TarotCardItem(item)
+            items(cardBacks) { item ->
+                GalleryCardItem(
+                    item = item, 
+                    isEquipped = item.id == equippedId,
+                    onEquip = { viewModel.equipCardBack(it) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun TarotCardItem(item: GalleryItem) {
+fun GalleryCardItem(item: CardBack, isEquipped: Boolean, onEquip: (String) -> Unit) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(enabled = item.isOwned) { onEquip(item.id) }
     ) {
-        // 카드 이미지 영역
         Box(
             modifier = Modifier
-                .aspectRatio(0.6f) // 타로 카드 비율 (약 2:3)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (item.isCollected) Color.Transparent else LockedGray)
+                .aspectRatio(0.65f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (item.isOwned) Color.Transparent else LockedGray)
                 .border(
-                    width = 1.dp,
-                    color = if (item.isCollected) Gold else Color.Gray.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .clickable {
-                    if (item.isCollected) {
-                        // TODO: 카드 상세 팝업 띄우기
-                    }
-                },
+                    width = if (isEquipped) 3.dp else 1.dp,
+                    color = if (isEquipped) Gold else if (item.isOwned) Gold.copy(0.4f) else Color.White.copy(0.1f), 
+                    shape = RoundedCornerShape(12.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
-            if (item.isCollected) {
-                // 수집된 카드: 컬러 이미지 표시
+            if (item.isOwned) {
                 Image(
-                    painter = painterResource(id = R.drawable.img_card_back), // 샘플 이미지
+                    painter = painterResource(id = item.imageRes),
                     contentDescription = item.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
-
-                // 빛나는 효과 (Overlay)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
-                            )
-                        )
-                )
+                if (isEquipped) {
+                    Box(modifier = Modifier.fillMaxSize().background(Gold.copy(alpha = 0.1f)))
+                }
             } else {
-                // 미수집 카드: 자물쇠 아이콘
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = "Locked",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
+                // 잠긴 카드는 어둡게 처리냥!
+                Icon(imageVector = Icons.Default.Lock, contentDescription = "Locked", tint = Color.White.copy(0.2f), modifier = Modifier.size(24.dp))
             }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // 카드 이름
+        
+        Spacer(modifier = Modifier.height(6.dp))
+        
         Text(
-            text = if (item.isCollected) item.name else "???",
-            color = if (item.isCollected) Gold else Color.Gray,
-            fontSize = 12.sp,
+            text = if (isEquipped) "장착됨 ✨" else if (item.isOwned) item.name else "???",
+            color = if (isEquipped) Gold else if (item.isOwned) Color.White else Color.Gray,
+            fontSize = 10.sp,
+            fontWeight = if (isEquipped) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
-            textAlign = TextAlign.Center,
-            fontWeight = if (item.isCollected) FontWeight.Bold else FontWeight.Normal
+            textAlign = TextAlign.Center
         )
     }
 }

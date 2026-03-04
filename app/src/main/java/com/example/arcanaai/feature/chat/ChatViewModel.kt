@@ -2,11 +2,15 @@ package com.example.arcanaai.feature.chat
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.arcanaai.data.local.ChatDao
+import com.example.arcanaai.data.model.ChatMessage
 import com.example.arcanaai.data.model.TarotCard
 import com.example.arcanaai.data.repository.TarotRepository
+import com.example.arcanaai.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.example.arcanaai.R
 
@@ -18,11 +22,30 @@ sealed class TarotUiState {
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val repository: TarotRepository,
+    private val userRepository: UserRepository, // 👈 금고 주입냥!
+    private val chatDao: ChatDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     val topic: String = savedStateHandle["topic"] ?: "free"
     val catId: String = savedStateHandle["catId"] ?: "arcana"
+
+    // 🎴 집사가 장착한 카드 뒷면을 실시간으로 가져온다냥!
+    val equippedBackRes = userRepository.userProfile.map { profile ->
+        val backId = profile?.equippedBackId ?: "default"
+        // ID에 맞는 이미지 리소스를 찾아낸다냥! (나중에 모델에 리소스 맵을 만들면 더 좋냥)
+        when (backId) {
+            "moon" -> R.drawable.img_card_back_moon
+            "sun" -> R.drawable.img_card_back_sun
+            "mystic" -> R.drawable.img_card_back_eyes
+            "legend" -> R.drawable.img_card_back_legend
+            "butterfly" -> R.drawable.img_card_bac_butterfly
+            "twin_moon" -> R.drawable.img_card_bac_twin_moons
+            "yggdrasil" -> R.drawable.img_card_bac_yggdrasil
+            "cut_eyes" -> R.drawable.img_card_back_cut_eyes
+            else -> R.drawable.img_card_back
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), R.drawable.img_card_back)
 
     private val _uiState = MutableStateFlow<TarotUiState>(TarotUiState.Picking)
     val uiState = _uiState.asStateFlow()
@@ -60,6 +83,21 @@ class ChatViewModel @Inject constructor(
         if (_selectedCards.value.size == 3) {
             val interpretation = generateLocalInterpretation(_selectedCards.value)
             _uiState.value = TarotUiState.Result(_selectedCards.value, interpretation)
+            saveResultToHistory(_selectedCards.value, interpretation)
+        }
+    }
+
+    private fun saveResultToHistory(cards: List<TarotCard>, interpretation: String) {
+        viewModelScope.launch {
+            val cardNames = cards.joinToString { it.name }
+            val historyEntry = ChatMessage(
+                content = interpretation,
+                isFromUser = false,
+                topic = topic,
+                relatedCardName = cardNames,
+                characterMood = "HAPPY"
+            )
+            chatDao.insertMessage(historyEntry)
         }
     }
 
@@ -71,11 +109,7 @@ class ChatViewModel @Inject constructor(
 
     private fun generateLocalInterpretation(cards: List<TarotCard>): String {
         if (cards.size < 3) return "운명의 실타래가 꼬였다냥! 카드가 부족하다냥."
-
-        val c1 = cards[0]
-        val c2 = cards[1]
-        val c3 = cards[2]
-
+        val c1 = cards[0]; val c2 = cards[1]; val c3 = cards[2]
         return """
             🔮 ${catName} 마스터가 집사의 운명을 읽어냈다냥! 🐾
             
@@ -94,8 +128,6 @@ class ChatViewModel @Inject constructor(
             🐾 ${catName}의 마법 한마디 🐾
             집사가 선택한 세 개의 운명이 묘하게 얽혀있다냥. 
             '${c1.keyword}'의 기운을 소중히 간직하고 '${c2.keyword}'를 잘 헤쳐나간다면, 결국 '${c3.keyword}'의 결말에 닿게 될 거다냥!
-            
-            더 깊은 통찰력은 나중에 집사와 1:1 대화에서 나누자냥! 🐈🐾
         """.trimIndent()
     }
 }
