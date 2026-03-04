@@ -73,7 +73,13 @@ fun AppNavigationGraph(navController: NavHostController) {
         }
 
         composable(BottomNavItem.Altar.route) {
-            SettingsScreen()
+            SettingsScreen(
+                onLogout = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(

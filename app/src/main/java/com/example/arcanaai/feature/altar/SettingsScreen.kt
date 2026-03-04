@@ -10,12 +10,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -43,6 +47,7 @@ import com.example.arcanaai.R
 import com.example.arcanaai.data.model.CardBack
 import com.example.arcanaai.feature.sanctuary.TopHeaderBar
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 private val MysticDark = Color(0xFF0F0C29)
 private val CardBg = Color(0xFF1A1A2E)
@@ -51,7 +56,10 @@ private val TextWhite = Color(0xFFEEEEEE)
 private val TextGray = Color(0xFFAAAAAA)
 
 @Composable
-fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onLogout: () -> Unit,
+    viewModel: AltarViewModel = hiltViewModel()
+) {
     val userGems by viewModel.userGems.collectAsState()
     val cardBacks by viewModel.cardBacks.collectAsState()
     val equippedId by viewModel.equippedBackId.collectAsState()
@@ -67,6 +75,12 @@ fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
     
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showGemPurchaseDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.logoutEvent.collectLatest {
+            onLogout()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -102,12 +116,22 @@ fun SettingsScreen(viewModel: AltarViewModel = hiltViewModel()) {
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("뒷면 보관함")
             CardBackInventory(cardBacks = cardBacks, equippedId = equippedId, onEquip = { viewModel.equipCardBack(it) })
+            
             Spacer(modifier = Modifier.height(32.dp))
             SectionTitle("Rituals (설정)")
             SettingsSwitchItem("일일 예언 알림", "매일 아침 8시, 운명의 메시지를 받습니다.", Icons.Default.Notifications, isNotificationEnabled) { isNotificationEnabled = it }
             SettingsSwitchItem("신비로운 소리", "배경음악과 효과음을 켭니다.", Icons.Default.Star, isSoundEnabled) { isSoundEnabled = it }
+            
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("Forbidden (관리)")
+            
+            SettingsActionItem(
+                title = "로그아웃",
+                subtitle = "현재 세션을 종료합니다.",
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                onClick = { viewModel.logout() }
+            )
+
             SettingsActionItem("운명 기록 지우기", "모든 상담 내역이 영원히 사라집니다.", Icons.Default.Refresh, true) { Toast.makeText(context, "기록이 초기화되었습니다.", Toast.LENGTH_SHORT).show() }
             SettingsActionItem("앱 버전 정보", "v1.0.0 (Arcana Core)", Icons.Default.Settings) {}
             Spacer(modifier = Modifier.height(100.dp))
@@ -164,24 +188,24 @@ fun GemPurchaseDialog(onDismiss: () -> Unit, onPurchase: (Int) -> Unit) {
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .wrapContentHeight()
-                .clip(RoundedCornerShape(28.dp)),
+                .clip(RoundedCornerShape(32.dp)),
             color = CardBg
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     "수정 충전소", 
                     color = Color.White, 
-                    fontSize = 24.sp, 
+                    fontSize = 26.sp, 
                     fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(bottom = 20.dp)
+                    modifier = Modifier.padding(bottom = 24.dp)
                 )
 
-                // 3줄 2열 배치 (한 화면에 쏙 들어오게냥!)
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    purchaseItems.chunked(2).forEach { rowItems ->
+                // 2줄 3열 배치 (3개씩 묶어서냥!)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    purchaseItems.chunked(3).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -199,13 +223,13 @@ fun GemPurchaseDialog(onDismiss: () -> Unit, onPurchase: (Int) -> Unit) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("다음에 하기", color = Color.Gray, fontSize = 14.sp)
+                    Text("다음에 하기", color = Color.Gray, fontSize = 15.sp)
                 }
             }
         }
@@ -222,20 +246,20 @@ fun PurchaseItemCard(
 ) {
     Card(
         modifier = modifier.clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Gold.copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Gold.copy(alpha = 0.4f))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 보석 아이콘 (크게!)
+            // 보석 아이콘 (아주 큼지막하게냥!)
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(64.dp)
                     .background(
-                        brush = Brush.radialGradient(listOf(Gold.copy(0.2f), Color.Transparent)),
+                        brush = Brush.radialGradient(listOf(Gold.copy(0.25f), Color.Transparent)),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -249,28 +273,28 @@ fun PurchaseItemCard(
                         amount >= 300 -> "💰"
                         else -> "💎"
                     },
-                    fontSize = 32.sp
+                    fontSize = 36.sp
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
-            Text(label, color = TextGray, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-            Text("$amount", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(label, color = TextGray, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+            Text("$amount", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
-            // 가격 태그
+            // 가격 태그 (아래에 배치냥!)
             Surface(
                 color = Gold,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(0.9f)
             ) {
                 Text(
                     text = price,
                     color = Color.Black,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(vertical = 6.dp)
                 )
@@ -492,7 +516,7 @@ fun SettingsSwitchItem(title: String, subtitle: String, icon: ImageVector, check
 @Composable
 fun SettingsActionItem(title: String, subtitle: String, icon: ImageVector, isDestructive: Boolean = false, onClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(imageVector = icon, contentDescription = null, tint = if (isDestructive) Color(0xFFFF6B6B) else TextGray, modifier = Modifier.size(24.dp))
+        Icon(imageVector = icon, contentDescription = null, tint = if (isDestructive) Color(0xFFFF6B6B) else TextGray, modifier = Modifier.size(24.dp) )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, color = if (isDestructive) Color(0xFFFF6B6B) else TextWhite, fontSize = 16.sp)

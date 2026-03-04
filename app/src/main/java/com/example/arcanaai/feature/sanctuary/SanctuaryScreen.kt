@@ -63,7 +63,6 @@ fun SanctuaryScreen(
     var showUnlockDialog by remember { mutableStateOf(false) }
     var selectedCatToUnlock by remember { mutableStateOf<CatMaster?>(null) }
     
-    // 💎 젬 충전 다이얼로그 상태냥!
     var showGemPurchaseDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(pagerState.currentPage) {
@@ -88,7 +87,6 @@ fun SanctuaryScreen(
         )
     }
 
-    // 💎 메인 화면용 젬 충전 마법
     if (showGemPurchaseDialog) {
         GemPurchaseDialog(
             onDismiss = { showGemPurchaseDialog = false },
@@ -110,10 +108,9 @@ fun SanctuaryScreen(
             )
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
-            // 👈 젬 카드를 누르면 충전 창이 뜨게 연결했다냥!
             TopHeaderBar(
                 userName = userName, 
-                gems = userGems,
+                gems = userGems ?: 0, 
                 onGemClick = { showGemPurchaseDialog = true }
             )
         }
@@ -218,17 +215,17 @@ fun SanctuaryScreen(
             )
 
             val chunkedTopics = topics.chunked(2)
-            items(chunkedTopics) { pair ->
+            items(chunkedTopics) { rowItems: List<ConsultationTopic> ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    pair.forEach { topic ->
+                    rowItems.forEach { topic ->
                         Box(modifier = Modifier.weight(1f)) {
                             TopicCard(topic = topic, onClick = { onNavigateToChat(topic.id, activeCatId) })
                         }
                     }
-                    if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+                    if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -247,7 +244,6 @@ fun TopHeaderBar(userName: String, gems: Int, onGemClick: () -> Unit) {
             Text("${userName}님", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
-        // 💎 충전 가능한 젬 카드냥!
         Surface(
             color = Color(0x33000000),
             shape = RoundedCornerShape(20.dp),
@@ -265,8 +261,6 @@ fun TopHeaderBar(userName: String, gems: Int, onGemClick: () -> Unit) {
         }
     }
 }
-
-// ... CatMasterCard, TopicCard 등은 동일 (생략 가능)
 
 @Composable
 fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
