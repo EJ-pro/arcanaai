@@ -46,10 +46,17 @@ class GalleryViewModel @Inject constructor(
     )
 
     private val _allMasters = listOf(
-        CatMaster("arcana", "아르카나", "신비로운 보랏빛 고양이", R.drawable.char_cat_default, listOf(Color(0xFF0F0C29), Color(0xFF302B63))),
+        CatMaster("arcana", "아르카나", "신비로운 보랏빛 고양이", R.drawable.char_cat_default, listOf(Color(0xFF6f42c1), Color(0xFF2c003e))),
+        CatMaster("rubi", "루비", "불꽃처럼 강렬한 고양이", R.drawable.char_cat_red, listOf(Color(0xFFd90429), Color(0xFF6f0000))),
+        CatMaster("coral", "코랄", "따듯한 햇살의 고양이", R.drawable.char_cat_orange, listOf(Color(0xFFf95738), Color(0xFF8c2f00))),
+        CatMaster("topaz", "토파즈", "밝고 긍정적인 고양이", R.drawable.char_cat_yellow, listOf(Color(0xFFffca3a), Color(0xFFc37300))),
+        CatMaster("gaia", "가이아", "자연과 치유의 고양이", R.drawable.char_cat_green, listOf(Color(0xFF8ac926), Color(0xFF005f08))),
+        CatMaster("sapphier", "사파이어", "깊은 바다속 고양이", R.drawable.char_cat_blue, listOf(Color(0xFF1982c4), Color(0xFF003566))),
+        CatMaster("night", "나이트", "심연의 신비로운 고양이", R.drawable.char_cat_dark_blue, listOf(Color(0xFF001233), Color(0xFF000000))),
+        CatMaster("shadow", "쉐도우", "모든것을 삼키는 고양이", R.drawable.char_cat_dark, listOf(Color(0xFF333333), Color(0xFF000000))),
+        CatMaster("crystal", "크리스탈", "순수한 시작의 고양이", R.drawable.char_cat_white, listOf(Color(0xFFe0e0e0), Color(0xFF9e9e9e))),
         CatMaster("nero", "네로", "밤의 기운을 담은 검은 고양이", R.drawable.char_nero_default, listOf(Color(0xFF141E30), Color(0xFF243B55))),
-        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E))),
-        CatMaster("white", "화이트", "순수한 눈꽃 고양이", R.drawable.char_cat_white, listOf(Color(0xFFFFFFFF), Color(0xFFE0E0E0))) // 👈 White 추가냥!
+        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)))
     )
 
     val cardBacks = combine(userRepository.ownedCardBacks, userProfile) { ownedIds, _ ->
@@ -65,6 +72,9 @@ class GalleryViewModel @Inject constructor(
 
     private val _gachaResult = MutableStateFlow<Any?>(null)
     val gachaResult = _gachaResult.asStateFlow()
+
+    private val _gachaType = MutableStateFlow<String?>(null) // "master" or "card"
+    val gachaType = _gachaType.asStateFlow()
 
     fun addGems(amount: Int) {
         val profile = userProfile.value ?: return
@@ -102,9 +112,10 @@ class GalleryViewModel @Inject constructor(
         if (profile.gems < 300 || _isGachaRunning.value || lockMasters.isEmpty()) return
         viewModelScope.launch {
             userRepository.updateGems(profile.id, profile.gems - 300)
+            _gachaType.value = "master"
             _isGachaRunning.value = true
             _gachaResult.value = null
-            delay(2000)
+            delay(2500)
             val result = lockMasters.random()
             userRepository.unlockMaster(profile.id, result.id)
             userRepository.refreshUserData(profile.id)
@@ -120,9 +131,10 @@ class GalleryViewModel @Inject constructor(
         if (profile.gems < 300 || _isGachaRunning.value || unownedCards.isEmpty()) return
         viewModelScope.launch {
             userRepository.updateGems(profile.id, profile.gems - 300)
+            _gachaType.value = "card"
             _isGachaRunning.value = true
             _gachaResult.value = null
-            delay(2000)
+            delay(2500)
             val result = unownedCards.random()
             userRepository.addCardBack(profile.id, result.id)
             userRepository.refreshUserData(profile.id)
@@ -133,5 +145,6 @@ class GalleryViewModel @Inject constructor(
 
     fun dismissGacha() {
         _gachaResult.value = null
+        _gachaType.value = null
     }
 }

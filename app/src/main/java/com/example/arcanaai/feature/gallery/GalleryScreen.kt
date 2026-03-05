@@ -37,6 +37,7 @@ import com.example.arcanaai.data.model.CardBackGrade
 import com.example.arcanaai.data.model.CatMaster
 import com.example.arcanaai.feature.altar.GemPurchaseDialog
 import com.example.arcanaai.feature.sanctuary.TopHeaderBar
+import com.example.arcanaai.core.designsystem.components.GachaFullScreenOverlay // 👈 진짜 마법 연출냥!
 
 @Composable
 fun GalleryScreen(
@@ -50,6 +51,7 @@ fun GalleryScreen(
     val equippedBackId by viewModel.equippedBackId.collectAsState()
     val isGachaRunning by viewModel.isGachaRunning.collectAsState()
     val gachaResult by viewModel.gachaResult.collectAsState()
+    val gachaType by viewModel.gachaType.collectAsState()
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
@@ -139,8 +141,15 @@ fun GalleryScreen(
             }
         }
 
+        // 👈 진짜 화려한 가챠 오버레이! 이제 TODO를 지우고 데이터를 연결했다냥!
         if (isGachaRunning || gachaResult != null) {
-            GachaOverlay(isRunning = isGachaRunning, result = gachaResult, onDismiss = { viewModel.dismissGacha() })
+            GachaFullScreenOverlay(
+                isRunning = isGachaRunning,
+                gachaType = gachaType,
+                result = gachaResult,
+                allMasters = catMasters, // 👈 이제 고양이 명단을 정확히 넘겨준다냥!
+                onDismiss = { viewModel.dismissGacha() }
+            )
         }
     }
 }
@@ -220,32 +229,5 @@ fun GachaButton(label: String, onGacha: () -> Unit, enabled: Boolean) {
         Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.Black)
         Spacer(modifier = Modifier.width(8.dp))
         Text("$label (💎 300)", color = Color.Black, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun GachaOverlay(isRunning: Boolean, result: Any?, onDismiss: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)).clickable { if (!isRunning) onDismiss() }, contentAlignment = Alignment.Center) {
-        if (isRunning) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = Color(0xFFFFD700))
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("차원의 문을 여는 중이다냥...", color = Color.White)
-            }
-        } else if (result != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("✨ 획득 성공! ✨", color = Color(0xFFFFD700), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(32.dp))
-                if (result is CatMaster) {
-                    Image(painter = painterResource(id = result.imageRes), contentDescription = null, modifier = Modifier.size(200.dp).clip(CircleShape))
-                    Text("${result.name} 마스터", color = Color.White, fontSize = 20.sp, modifier = Modifier.padding(top = 16.dp))
-                } else if (result is CardBack) {
-                    Image(painter = painterResource(id = result.imageRes), contentDescription = null, modifier = Modifier.height(300.dp).clip(RoundedCornerShape(16.dp)))
-                    Text(result.name, color = Color.White, fontSize = 20.sp, modifier = Modifier.padding(top = 16.dp))
-                }
-                Spacer(modifier = Modifier.height(48.dp))
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700))) { Text("확인", color = Color.Black) }
-            }
-        }
     }
 }
