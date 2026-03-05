@@ -1,22 +1,16 @@
 package com.example.arcanaai.feature.altar
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
 import android.widget.Toast
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,265 +19,245 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import com.example.arcanaai.R
+import com.example.arcanaai.data.model.CardBack
+import com.example.arcanaai.data.model.UserProfile
 import com.example.arcanaai.feature.sanctuary.TopHeaderBar
-import kotlinx.coroutines.flow.collectLatest
-
-private val MysticDark = Color(0xFF0F0C29)
-private val CardBg = Color(0xFF1A1A2E)
-private val Gold = Color(0xFFFFD700)
-private val TextWhite = Color(0xFFEEEEEE)
-private val TextGray = Color(0xFFAAAAAA)
-
-fun Context.findActivity(): Activity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is Activity) return context
-        context = context.baseContext
-    }
-    return null
-}
 
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
     viewModel: AltarViewModel = hiltViewModel()
 ) {
+    val userProfile by viewModel.userProfile.collectAsState()
     val userGems by viewModel.userGems.collectAsState()
-    
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    val scrollState = rememberScrollState()
+    val cardBacks by viewModel.cardBacks.collectAsState()
+    val equippedBackId by viewModel.equippedBackId.collectAsState()
+    val isGachaRunning by viewModel.isGachaRunning.collectAsState()
+    val showGachaOverlay by viewModel.showGachaOverlay.collectAsState()
+    val lastGachaResult by viewModel.lastGachaResult.collectAsState()
 
-    var isNotificationEnabled by remember { mutableStateOf(true) }
-    var isSoundEnabled by remember { mutableStateOf(true) }
+    val context = LocalContext.current
     var showGemPurchaseDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.logoutEvent.collectLatest { onLogout() }
+    // 로그아웃 이벤트 감지냥!
+    LaunchedEffect(viewModel.logoutEvent) {
+        viewModel.logoutEvent.collect { onLogout() }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    if (showGemPurchaseDialog) {
+        GemPurchaseDialog(
+            onDismiss = { showGemPurchaseDialog = false },
+            onPurchase = { amount ->
+                viewModel.addGems(amount)
+                showGemPurchaseDialog = false
+                Toast.makeText(context, "수정 $amount 개가 충전되었습니다냥! ✨", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    Scaffold(
+        containerColor = Color(0xFF0F0C29)
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MysticDark)
-                .verticalScroll(scrollState)
-                .padding(16.dp)
-        ) {
-            TopHeaderBar(
-                userName = "운명의 여행자", 
-                gems = userGems,
-                onGemClick = { showGemPurchaseDialog = true }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "The Altar", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            ProfileCard()
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            GemStatusCard(gems = userGems, onAddClick = { showGemPurchaseDialog = true })
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            SectionTitle("Rituals (설정)")
-            SettingsSwitchItem("일일 예언 알림", "매일 아침 8시, 운명의 메시지를 받습니다.", Icons.Default.Notifications, isNotificationEnabled) { isNotificationEnabled = it }
-            SettingsSwitchItem("신비로운 소리", "배경음악과 효과음을 켭니다.", Icons.Default.Star, isSoundEnabled) { isSoundEnabled = it }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            SectionTitle("Forbidden (관리)")
-            SettingsActionItem("로그아웃", "현재 세션을 종료합니다.", Icons.AutoMirrored.Filled.ExitToApp) { viewModel.logout() }
-            SettingsActionItem("운명 기록 지우기", "모든 상담 내역이 영원히 사라집니다.", Icons.Default.Refresh, true) { Toast.makeText(context, "기록이 초기화되었습니다.", Toast.LENGTH_SHORT).show() }
-            SettingsActionItem("앱 버전 정보", "v1.0.0 (Arcana Core)", Icons.Default.Settings) {}
-            Spacer(modifier = Modifier.height(100.dp))
-        }
-
-        if (showGemPurchaseDialog) {
-            GemPurchaseDialog(
-                onDismiss = { showGemPurchaseDialog = false },
-                onPurchase = { amount ->
-                    if (activity != null) {
-                        viewModel.startPurchase(activity, "gem_$amount", amount)
-                    } else {
-                        viewModel.addGems(amount)
-                    }
-                    showGemPurchaseDialog = false
-                }
-            )
-        }
-    }
-}
-
-@Composable
-fun GemPurchaseDialog(onDismiss: () -> Unit, onPurchase: (Int) -> Unit) {
-    val purchaseItems = listOf(
-        Triple(100, "수정 묶음", "₩ 1,100"),
-        Triple(300, "수정 주머니", "₩ 3,300"),
-        Triple(500, "수정 상자", "₩ 5,500"),
-        Triple(1000, "거대 수정", "₩ 11,000"),
-        Triple(2500, "고대 보물", "₩ 25,000"),
-        Triple(5000, "아르카나 정수", "₩ 49,000")
-    )
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .wrapContentHeight()
-                .clip(RoundedCornerShape(32.dp)),
-            color = CardBg
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "수정 충전소", 
-                    color = Color.White, 
-                    fontSize = 26.sp, 
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                .padding(innerPadding)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFF0F0C29), Color(0xFF1A1A2E))
+                    )
                 )
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    purchaseItems.chunked(3).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { (amount, label, price) ->
-                                PurchaseItemCard(
-                                    amount = amount,
-                                    label = label,
-                                    price = price,
-                                    onClick = { onPurchase(amount) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+            // 1️⃣ 상단 유저 정보 (이름 & 젬)
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                TopHeaderBar(
+                    userName = userProfile?.nickname ?: "집사",
+                    gems = userGems,
+                    onGemClick = { showGemPurchaseDialog = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                // 2️⃣ 프로필 & 레벨 섹션냥!
+                item {
+                    UserProfileSection(userProfile)
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        text = "신비로운 제단",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                }
+
+                // 3️⃣ 카드 뒷면 가챠 섹션냥!
+                item {
+                    GachaSection(onDraw = { viewModel.drawCardBack() })
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "소유한 카드 뒷면",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                }
+
+                // 4️⃣ 카드 리스트
+                items(cardBacks.chunked(3)) { rowBacks ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowBacks.forEach { back ->
+                            CardBackItem(
+                                back = back,
+                                isEquipped = back.id == equippedBackId,
+                                onClick = { viewModel.equipCardBack(back.id) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        repeat(3 - rowBacks.size) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("다음에 하기", color = Color.Gray, fontSize = 15.sp)
+                // 5️⃣ 하단 메뉴
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    ListItem(
+                        headlineContent = { Text("로그아웃", color = Color.LightGray) },
+                        leadingContent = { Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Gray) },
+                        modifier = Modifier.clickable { viewModel.logout() },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
                 }
             }
         }
-    }
-}
 
-@Composable
-fun PurchaseItemCard(
-    amount: Int,
-    label: String,
-    price: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Gold.copy(alpha = 0.4f))
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(
-                        brush = Brush.radialGradient(listOf(Gold.copy(0.25f), Color.Transparent)),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = when {
-                        amount >= 5000 -> "🌌"
-                        amount >= 2500 -> "👑"
-                        amount >= 1000 -> "🔮"
-                        amount >= 500 -> "📦"
-                        amount >= 300 -> "💰"
-                        else -> "💎"
-                    },
-                    fontSize = 36.sp
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(label, color = TextGray, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-            Text("$amount", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Surface(
-                color = Gold,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(0.9f)
-            ) {
-                Text(
-                    text = price,
-                    color = Color.Black,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 6.dp)
-                )
-            }
+        // 가챠 오버레이 연출냥!
+        if (showGachaOverlay) {
+            GachaOverlay(
+                isRunning = isGachaRunning,
+                result = lastGachaResult,
+                onDismiss = { viewModel.dismissGacha() }
+            )
         }
     }
 }
 
 @Composable
-fun GemStatusCard(gems: Int, onAddClick: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(0.3f), RoundedCornerShape(16.dp))
+fun UserProfileSection(profile: UserProfile?) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // 프로필 이미지냥!
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF31315F))
+                .border(2.dp, Color(0xFFFFD700), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (profile?.profileImage != null) {
+                AsyncImage(
+                    model = profile.profileImage,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.Gray)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 닉네임냥!
+        Text(
+            text = profile?.nickname ?: "아르카나 집사",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 레벨 & 경험치 바냥!
+        val level = profile?.level ?: 1
+        val exp = profile?.exp ?: 0
+        val maxExp = profile?.maxExp ?: 100
+        val progress = exp.toFloat() / maxExp
+
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                Text("보유한 수정", color = Color.Gray, fontSize = 12.sp)
-                Text("💎 $gems", color = Gold, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
-            IconButton(
-                onClick = onAddClick,
-                modifier = Modifier.background(Gold, CircleShape).size(36.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Gems", tint = Color.Black)
-            }
+            Text(text = "Lv.$level", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = "$exp / $maxExp", color = Color.Gray, fontSize = 12.sp)
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            color = Color(0xFFFFD700),
+            trackColor = Color(0xFF31315F)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Lv.5 마다 특별한 카드 뒷면을 선물한다냥! 🎁",
+            color = Color(0xFF87CEEB),
+            fontSize = 11.sp
+        )
     }
 }
 
 @Composable
-fun ProfileCard() {
+fun GachaSection(onDraw: () -> Unit) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(0.2f), RoundedCornerShape(16.dp))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF31315F).copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable { onDraw() }
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
@@ -291,126 +265,123 @@ fun ProfileCard() {
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color.DarkGray)
-                    .border(2.dp, Gold, CircleShape),
+                    .size(56.dp)
+                    .background(Color(0xFFFFD700).copy(alpha = 0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFFFFD700))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text("새로운 카드 뒷면 연성하기", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("신비로운 힘으로 뒷면을 소환한다냥! (💎 100개)", color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun CardBackItem(
+    back: CardBack,
+    isEquipped: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = back.isOwned) { onClick() }
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.7f)
+                .clip(RoundedCornerShape(8.dp))
+                .border(
+                    width = if (isEquipped) 3.dp else 0.dp,
+                    color = if (isEquipped) Color(0xFFFFD700) else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp)
+                )
+        ) {
+            Image(
+                painter = painterResource(id = back.imageRes),
+                contentDescription = back.name,
+                modifier = Modifier.fillMaxSize().then(if (!back.isOwned) Modifier.background(Color.Black.copy(alpha = 0.6f)) else Modifier),
+                contentScale = ContentScale.Crop
+            )
+            if (!back.isOwned) {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    Icons.Default.Lock, 
+                    contentDescription = null, 
+                    modifier = Modifier.align(Alignment.Center).size(24.dp), 
+                    tint = Color.White.copy(alpha = 0.7f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = back.name, color = if (back.isOwned) Color.White else Color.Gray, fontSize = 11.sp, maxLines = 1)
+    }
+}
+
+@Composable
+fun GachaOverlay(isRunning: Boolean, result: CardBack?, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+            .clickable { if (!isRunning) onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (isRunning) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = Color(0xFFFFD700))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("아르카나의 기운을 모으는 중...", color = Color.White)
+            }
+        } else if (result != null) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("✨ 새로운 뒷면 획득! ✨", color = Color(0xFFFFD700), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(24.dp))
+                Image(
+                    painter = painterResource(id = result.imageRes),
                     contentDescription = null,
-                    tint = Gold,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.height(300.dp).clip(RoundedCornerShape(16.dp))
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = result.name, color = Color.White, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700))) {
+                    Text("고맙다냥!", color = Color.Black)
+                }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.width(16.dp))
-
+@Composable
+fun GemPurchaseDialog(onDismiss: () -> Unit, onPurchase: (Int) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("수정 충전", color = Color.White) },
+        text = {
             Column {
-                Text(
-                    text = "운명의 여행자",
-                    color = TextWhite,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Lv. 1 Wanderer",
-                    color = Gold,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Text("충전할 수정 개수를 선택해라냥!", color = Color.LightGray)
+                Spacer(modifier = Modifier.height(16.dp))
+                listOf(100, 500, 1000).forEach { amount ->
+                    Button(
+                        onClick = { onPurchase(amount) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF31315F))
+                    ) {
+                        Text("💎 $amount 개 충전")
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun SettingsSwitchItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(modifier = Modifier.weight(1f)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = TextGray,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(text = title, color = TextWhite, fontSize = 16.sp)
-                Text(text = subtitle, color = TextGray, fontSize = 12.sp)
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Gold,
-                checkedTrackColor = Gold.copy(alpha = 0.5f),
-                uncheckedThumbColor = TextGray,
-                uncheckedTrackColor = Color.DarkGray
-            )
-        )
-    }
-}
-
-@Composable
-fun SettingsActionItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    isDestructive: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isDestructive) Color(0xFFFF6B6B) else TextGray,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = if (isDestructive) Color(0xFFFF6B6B) else TextWhite,
-                fontSize = 16.sp
-            )
-            Text(text = subtitle, color = TextGray, fontSize = 12.sp)
-        }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = TextGray
-        )
-    }
-}
-
-@Composable
-fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        color = Color.Gray,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
+        },
+        containerColor = Color(0xFF1A1A2E),
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기", color = Color.Gray) } }
     )
 }

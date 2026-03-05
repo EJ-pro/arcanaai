@@ -34,9 +34,8 @@ import com.example.arcanaai.R
 import com.example.arcanaai.data.model.CatMaster
 import com.example.arcanaai.feature.altar.GemPurchaseDialog
 import kotlin.math.absoluteValue
-import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.compose.ui.util.lerp
 
-// 🔮 아이콘 타입을 ImageVector로 변경했다냥!
 data class ConsultationTopic(
     val id: String,
     val title: String,
@@ -198,7 +197,7 @@ fun SanctuaryScreen(
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "어떤 고민이 있어?",
+                    text = "신비로운 타로 카드 점",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -206,12 +205,11 @@ fun SanctuaryScreen(
                 )
             }
 
-            // 🔮 주제별 아이콘 대교체냥!
             val topics = listOf(
                 ConsultationTopic("연애 상담", "연애 상담", "그 사람의 속마음은?", Icons.Default.Favorite, Color(0xFFFFB6C1)),
                 ConsultationTopic("금전 & 취업", "금전/취업", "나의 재물운 흐름", Icons.Default.MonetizationOn, Color(0xFFFFD700)),
                 ConsultationTopic("양자택일", "양자택일", "A냐 B냐 그것이 문제", Icons.Default.CompareArrows, Color(0xFF87CEEB)),
-                ConsultationTopic("자유상담", "자유 상담", "무엇이든 물어보살", Icons.Default.SelfImprovement, Color(0xFFE6E6FA))
+                ConsultationTopic("자유상담", "자유 상담", "타로 카드로 고민 해결", Icons.Default.SelfImprovement, Color(0xFFE6E6FA))
             )
 
             val chunkedTopics = topics.chunked(2)
@@ -228,6 +226,77 @@ fun SanctuaryScreen(
                     if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
             }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "마스터와 1:1 대화 (챗봇)",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 16.dp)
+                )
+
+                ChatbotButton(
+                    catName = catMasters[pagerState.currentPage].name,
+                    onClick = { onNavigateToChat("chatbot", activeCatId) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatbotButton(catName: String, onClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E).copy(alpha = 0.8f)),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color(0xFFFFD700).copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = null,
+                    tint = Color(0xFFFFD700),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "${catName} 마스터와 1:1 대화",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "무엇이든 자유롭게 물어보라냥!",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(
+                imageVector = Icons.Default.ArrowForwardIos,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -292,7 +361,6 @@ fun TopicCard(topic: ConsultationTopic, onClick: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🔮 이제 ImageVector를 사용한다냥!
             Icon(
                 imageVector = topic.icon,
                 contentDescription = null,

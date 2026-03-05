@@ -21,14 +21,14 @@ class SanctuaryViewModel @Inject constructor(
     private val userRepository: UserRepository
 ) : ViewModel() {
 
-    // 🏰 전역 저장소의 상태를 그대로 가져와서 쓴다냥!
     val userName = userRepository.userProfile.map { it?.nickname ?: "Traveler" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Traveler")
 
     val userGems = userRepository.userProfile.map { it?.gems }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val activeCatId = userRepository.userProfile.map { it?.equippedBackId ?: "arcana" }
+    // 💡 이제 장착된 '마스터' ID를 관찰한다냥!
+    val activeCatId = userRepository.userProfile.map { it?.equippedMasterId ?: "arcana" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "arcana")
 
     private val _catMasters = MutableStateFlow(listOf(
@@ -37,7 +37,6 @@ class SanctuaryViewModel @Inject constructor(
         CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)), true)
     ))
     
-    // 해금 정보도 저장소와 연동냥!
     val catMasters = combine(_catMasters, userRepository.unlockedMasters) { masters, unlockedIds ->
         masters.map { it.copy(isLocked = !unlockedIds.contains(it.id)) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _catMasters.value)
@@ -52,7 +51,6 @@ class SanctuaryViewModel @Inject constructor(
     val catMessage = _catMessage.asStateFlow()
 
     init {
-        // 앱 실행하자마자 데이터 가져오기냥!
         syncWithServer()
     }
 
@@ -61,12 +59,10 @@ class SanctuaryViewModel @Inject constructor(
             if (user != null) {
                 viewModelScope.launch {
                     userRepository.refreshUserData(user.id.toString())
-                    // 만약 프로필이 아예 없다면 생성냥
                     if (userRepository.userProfile.value == null) {
                         val newProfile = UserProfile(
                             id = user.id.toString(),
-                            nickname = user.kakaoAccount?.profile?.nickname ?: "집사",
-                            gems = 300
+                            nickname = user.kakaoAccount?.profile?.nickname ?: "집사"
                         )
                         userRepository.createProfile(newProfile)
                     }
@@ -81,12 +77,11 @@ class SanctuaryViewModel @Inject constructor(
         _catMessage.value = if (cat.isLocked) "잠들어 있는 마스터다냥." else "${cat.name}가 함께할 준비가 됐다냥."
     }
 
+    // 💡 메서드명 수정: updateEquippedCat -> updateEquippedMaster
     fun selectCat(catId: String) {
-        viewModelScope.launch {
-            val userId = UserApiClient.instance.me { user, _ -> 
-                user?.id?.let { id ->
-                    viewModelScope.launch { userRepository.updateEquippedCat(id.toString(), catId) }
-                }
+        userRepository.userProfile.value?.let { profile ->
+            viewModelScope.launch {
+                userRepository.updateEquippedMaster(profile.id, catId)
             }
         }
     }

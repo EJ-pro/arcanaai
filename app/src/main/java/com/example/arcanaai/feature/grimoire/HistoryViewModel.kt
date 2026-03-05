@@ -1,62 +1,48 @@
 package com.example.arcanaai.feature.grimoire
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ThumbUp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.arcanaai.data.local.AppDatabase
+import com.example.arcanaai.data.local.ChatDao
 import com.example.arcanaai.data.model.ChatMessage
+import com.example.arcanaai.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import java.util.Date
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val database: AppDatabase
+    private val chatDao: ChatDao,
+    private val userRepository: UserRepository // 👈 유저 금고 주입냥!
 ) : ViewModel() {
 
-    val historyList: StateFlow<List<HistoryUiModel>> = database.chatDao().getAllMessages()
-        .map { messages ->
-            messages
-                .filter { it.relatedCardName != null }
-                .sortedByDescending { it.timestamp }
-                .map { entity ->
-                    entity.toUiModel()
-                }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    // 🔮 상단바에 필요한 유저 정보냥!
+    val userName = userRepository.userProfile
+        .map { it?.nickname ?: "집사" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "집사")
 
-    private fun ChatMessage.toUiModel(): HistoryUiModel {
-        val summaryText = if (this.content.length > 40) {
-            this.content.take(40).replace("\n", " ") + "..."
-        } else {
-            this.content.replace("\n", " ")
-        }
+    val userGems = userRepository.userProfile
+        .map { it?.gems ?: 0 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-        val icon = when {
-            this.topic.contains("연애") -> Icons.Default.Favorite
-            this.topic.contains("금전") -> Icons.Default.Star
-            else -> Icons.Default.ThumbUp
-        }
+    // 모든 채팅 기록을 실시간으로 가져온다냥!
+    val chatHistory = chatDao.getAllMessages()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        return HistoryUiModel(
-            id = this.id.toString(),
-            date = Date(this.timestamp),
-            topic = this.topic,
-            cardName = this.relatedCardName ?: "알 수 없는 운명",
-            summary = summaryText,
-            fullContent = this.content, // 👈 전체 내용 전달냥!
-            typeIcon = icon
-        )
+    // 젬 충전 기능냥!
+    fun addGems(amount: Int) {
+        val profile = userRepository.userProfile.value ?: return
+        viewModelScope.launch {
+            userRepository.updateGems(profile.id, profile.gems + amount)
+        }
+    }
+    
+    // 모든 기록 삭제 기능이다냥!
+    fun clearAllHistory() {
+        viewModelScope.launch {
+            chatDao.clearHistory()
+        }
     }
 }

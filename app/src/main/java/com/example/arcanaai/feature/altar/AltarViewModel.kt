@@ -126,13 +126,13 @@ class AltarViewModel @Inject constructor(
         }
     }
 
-    // 👕 새로운 옷 장착하기냥!
+    // 👕 새로운 옷 장착하기냥! (메서드명 수정냥!)
     fun equipCardBack(id: String) {
         val profile = userProfile.value ?: return
         val ownedIds = userRepository.ownedCardBacks.value
         if (ownedIds.contains(id) || id == "default") {
             viewModelScope.launch {
-                userRepository.updateEquippedCat(profile.id, id)
+                userRepository.updateEquippedBack(profile.id, id)
             }
         }
     }

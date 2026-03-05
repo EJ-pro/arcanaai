@@ -1,87 +1,86 @@
 package com.example.arcanaai.data.repository
 
 import android.content.Context
+import android.util.Log
+import com.example.arcanaai.BuildConfig
 import com.example.arcanaai.data.model.TarotCard
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class TarotRepository(private val context: Context) {
 
-    fun getAllCards(): List<TarotCard> {
-        val cards = mutableListOf<TarotCard>()
+    // 💡 모델 명칭은 반드시 소문자와 하이픈(-) 조합이어야 한다냥!
+    // 'gemini-1.5-flash' 또는 'gemini-pro'를 추천한다냥.
+    private val generativeModel = GenerativeModel(
+        modelName = "gemini-2.5-flash",
+        apiKey = BuildConfig.GEMINI_API_KEY,
+        systemInstruction = content { text("너는 신비롭고 영험한 고양이 타로 마스터 '아르카나'다냥. 항상 말끝에 '~다냥', '~해봐냥' 같은 고양이 말투를 사용해야 한다냥. 사용자의 고민을 따뜻하게 들어주고 공감해줘냥.") }
+    )
 
-        // 1. 메이저 아르카나 데이터 (0~21)
-        val majorData = listOf(
-            Pair("광대", "시작, 모험 / 새로운 여정이 시작되려 한다냥. 두려워 말고 발걸음을 내딛어봐냥."),
-            Pair("마법사", "창조, 능력 / 너에겐 이미 모든 준비가 되어있다냥. 네 능력을 믿고 시작해보라냥."),
-            Pair("고위 여사제", "직관, 지혜 / 내면의 목소리에 귀를 기울여라냥. 정답은 이미 네 마음속에 있다냥."),
-            Pair("황후", "풍요, 모성 / 따뜻한 기운이 너를 감싸고 있다냥. 결실을 맺을 시기가 다가온다냥."),
-            Pair("황제", "권위, 질서 / 규칙과 계획이 필요한 때다냥. 중심을 잘 잡고 나아가라냥."),
-            Pair("교황", "전통, 교육 / 누군가의 조언이나 가르침이 큰 힘이 될 거다냥. 주변을 둘러보라냥."),
-            Pair("연인", "선택, 사랑 / 마음이 이끄는 대로 결정해라냥. 소중한 인연이 기다리고 있다냥."),
-            Pair("전차", "승리, 전진 / 강한 의지로 밀어붙여라냥. 포기하지 않으면 결국 승리할 거다냥."),
-            Pair("힘", "힘, 인내 / 부드러움이 강함을 이긴다냥. 인내심을 갖고 상황을 다스려봐냥."),
-            Pair("은둔자", "탐구, 고독 / 잠시 멈춰서 자신을 돌아보는 시간이 필요하다냥. 깊이 생각해보라냥."),
-            Pair("운명의 수레바퀴", "운명, 변화 / 운명의 수레바퀴가 돌고 있다냥. 변화를 기꺼이 받아들여라냥."),
-            Pair("정의", "정의, 균형 / 공정하게 판단해야 할 때다냥. 원인과 결과는 명확하다냥."),
-            Pair("매달린 사람", "희생, 정지 / 다른 각도에서 세상을 바라봐냥. 기다림 또한 성장의 과정이다냥."),
-            Pair("죽음", "종료, 새로운 시작 / 낡은 것을 보내줘야 새로운 것이 온다냥. 끝은 곧 시작이다냥."),
-            Pair("절제", "절제, 조화 / 서로 다른 것들을 잘 섞어야 한다냥. 중용의 미덕을 발휘해봐냥."),
-            Pair("악마", "구속, 중독 / 유혹에 빠지지 않게 조심해라냥. 마음의 짐을 내려놓을 때다냥."),
-            Pair("탑", "붕괴, 급변 / 갑작스러운 변화에 놀라지 마라냥. 무너진 자리에서 다시 세우면 된다냥."),
-            Pair("별", "희망, 영감 / 어둠 속에서도 빛나는 별이 있다냥. 꿈을 향해 계속 나아가라냥."),
-            Pair("달", "불안, 무의식 / 안개 속을 걷는 기분일 수 있지만, 직관을 믿고 조심스레 나아가냥."),
-            Pair("태양", "성공, 행복 / 밝은 태양이 너를 비춘다냥! 모든 일이 잘 풀리고 기쁨이 가득할 거다냥."),
-            Pair("심판", "부활, 결단 / 이제 결정을 내려야 할 시간이다냥. 과거를 딛고 일어서라냥."),
-            Pair("세계", "완성, 통합 / 하나의 주기가 완성되었다냥. 충분히 자격이 있으니 즐기라냥.")
-        )
-
-        majorData.forEachIndexed { i, data ->
-            val (keyword, desc) = data.second.split(" / ")
-            cards.add(TarotCard(i, data.first, getResourceId("card_${String.format("%02d", i)}"), keyword, desc))
+    suspend fun getAiChatResponse(history: List<Pair<String, Boolean>>, userMessage: String): String = withContext(Dispatchers.IO) {
+        if (BuildConfig.GEMINI_API_KEY.isBlank() || BuildConfig.GEMINI_API_KEY == "YOUR_API_KEY") {
+            return@withContext "집사야, local.properties에 GEMINI_API_KEY를 먼저 넣어줘야 한다냥! 🐾"
         }
 
-        // 2. 마이너 아르카나 데이터 (22~77)
-        val suits = listOf(
-            Triple("지팡이", "열정, 행동", "에너지가 넘치는 시기다냥!"),
-            Triple("컵", "감정, 관계", "마음의 소리에 귀 기울여야 한다냥."),
-            Triple("검", "지성, 판단", "냉철한 이성이 필요한 때다냥."),
-            Triple("펜타클", "물질, 결실", "실질적인 성과가 눈에 보일 거다냥.")
+        try {
+            val chat = generativeModel.startChat(
+                history = history.map { (text, isUser) ->
+                    content(if (isUser) "user" else "model") { text(text) }
+                }
+            )
+            val response = chat.sendMessage(userMessage)
+            response.text ?: "미안하다냥, 우주의 기운이 잠시 끊겼다냥. 다시 말해줘냥!"
+        } catch (e: Exception) {
+            Log.e("Gemini", "Chat Error: ${e.message}", e)
+            "우주의 기운이 어지럽다냥! (오류: ${e.localizedMessage}). 모델 명칭이나 API 키를 확인해봐냥!"
+        }
+    }
+
+    suspend fun getDeepInterpretation(userGoal: String, selectedCards: List<TarotCard>): String = withContext(Dispatchers.IO) {
+        try {
+            val cardsInfo = selectedCards.joinToString("\n") { "- ${it.name}: ${it.keyword} (${it.description})" }
+            val prompt = """
+                [사용자의 고민]
+                $userGoal
+                
+                [선택된 카드들]
+                $cardsInfo
+                
+                이 상황에 대해 고양이 타로 술사로서 아주 상세하고 희망찬 해석을 해줘냥. 
+                각 카드가 의미하는 바를 이 고민과 연결해서 설명하고, 마지막에는 '집사를 위한 마법의 한마디'를 꼭 해줘냥!
+            """.trimIndent()
+            
+            val response = generativeModel.generateContent(prompt)
+            response.text ?: "카드가 너무 신비로워 해석이 안 된다냥..."
+        } catch (e: Exception) {
+            Log.e("Gemini", "Interpretation Error: ${e.message}", e)
+            "고양이가 지금 낮잠 시간인가보다냥... (오류: ${e.localizedMessage})"
+        }
+    }
+
+    fun getAllCards(): List<TarotCard> {
+        val cards = mutableListOf<TarotCard>()
+        val majorNames = listOf(
+            "광대", "마법사", "고위 여사제", "황후", "황제", "교황", "연인", "전차", "힘", "은둔자", 
+            "운명의 수레바퀴", "정의", "매달린 사람", "죽음", "절제", "악마", "탑", "별", "달", "태양", "심판", "세계"
         )
         
-        var currentId = 22
-        suits.forEach { suit ->
-            for (num in 1..14) {
-                val rankName = when(num) {
-                    1 -> "에이스"
-                    11 -> "페이지"
-                    12 -> "나이트"
-                    13 -> "퀸"
-                    14 -> "킹"
-                    else -> num.toString()
-                }
-                
-                val specificDesc = when(num) {
-                    1 -> "새로운 ${suit.first}의 기운이 솟아난다냥!"
-                    in 2..10 -> "${suit.first}의 기운이 점차 쌓여가는 과정이다냥."
-                    else -> "${suit.first}의 정점에 도달한 인물을 상징한다냥."
-                }
-
-                cards.add(
-                    TarotCard(
-                        id = currentId,
-                        name = "${suit.first} $rankName",
-                        imageRes = getResourceId("card_${String.format("%02d", currentId)}"),
-                        keyword = suit.second,
-                        description = "${suit.third} $specificDesc"
-                    )
-                )
-                currentId++
-            }
+        majorNames.forEachIndexed { i, name ->
+            cards.add(TarotCard(
+                id = i, 
+                name = name, 
+                imageRes = getResourceId("card_${String.format("%02d", i)}"), 
+                keyword = "키워드 $i", 
+                description = "설명 $i"
+            ))
         }
         return cards
     }
 
     private fun getResourceId(resourceName: String): Int {
         val id = context.resources.getIdentifier(resourceName, "drawable", context.packageName)
-        return if (id != 0) id else 0 // 이미지가 없으면 0 반환
+        return if (id != 0) id else 0
     }
 }

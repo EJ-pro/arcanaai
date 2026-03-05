@@ -17,7 +17,6 @@ import javax.inject.Singleton
 class UserRepository @Inject constructor(
     private val supabase: SupabaseClient
 ) {
-    // 🔮 전역적으로 관리되는 유저 상태냥!
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
@@ -27,7 +26,6 @@ class UserRepository @Inject constructor(
     private val _unlockedMasters = MutableStateFlow<List<String>>(listOf("arcana"))
     val unlockedMasters: StateFlow<List<String>> = _unlockedMasters.asStateFlow()
 
-    // 🏰 서버에서 모든 정보를 한 번에 갱신하는 마법냥!
     suspend fun refreshUserData(userId: String) = withContext(Dispatchers.IO) {
         try {
             val profile = supabase.postgrest["profiles"]
@@ -52,55 +50,62 @@ class UserRepository @Inject constructor(
         }
     }
 
+    suspend fun updateEquippedMaster(userId: String, masterId: String) = withContext(Dispatchers.IO) {
+        try {
+            supabase.postgrest["profiles"].update({ set("equipped_master_id", masterId) }) { filter { eq("id", userId) } }
+            _userProfile.value = _userProfile.value?.copy(equippedMasterId = masterId)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    suspend fun updateEquippedBack(userId: String, backId: String) = withContext(Dispatchers.IO) {
+        try {
+            supabase.postgrest["profiles"].update({ set("equipped_back_id", backId) }) { filter { eq("id", userId) } }
+            _userProfile.value = _userProfile.value?.copy(equippedBackId = backId)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     suspend fun createProfile(profile: UserProfile) = withContext(Dispatchers.IO) {
         try {
             supabase.postgrest["profiles"].upsert(profile)
             _userProfile.value = profile
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    suspend fun updateGems(userId: String, newGems: Int) = withContext(Dispatchers.IO) {
-        try {
-            supabase.postgrest["profiles"].update(
-                { set("gems", newGems) }
-            ) { filter { eq("id", userId) } }
-            
-            // 로컬 상태도 즉시 갱신냥!
-            _userProfile.value = _userProfile.value?.copy(gems = newGems)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    suspend fun addCardBack(userId: String, backId: String) = withContext(Dispatchers.IO) {
-        try {
-            supabase.postgrest["user_card_backs"].insert(UserCardBack(userId, backId))
-            _ownedCardBacks.value = _ownedCardBacks.value + backId
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     suspend fun unlockMaster(userId: String, masterId: String) = withContext(Dispatchers.IO) {
         try {
             supabase.postgrest["unlocked_masters"].insert(UnlockedMaster(userId, masterId))
             _unlockedMasters.value = _unlockedMasters.value + masterId
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
-    suspend fun updateEquippedCat(userId: String, catId: String) = withContext(Dispatchers.IO) {
-        try {
-            supabase.postgrest["profiles"].update(
-                { set("equipped_back_id", catId) }
-            ) { filter { eq("id", userId) } }
-            
-            _userProfile.value = _userProfile.value?.copy(equippedBackId = catId)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    suspend fun gainExp(userId: String, amount: Int) = withContext(Dispatchers.IO) {
+        val current = _userProfile.value ?: return@withContext
+        var newExp = current.exp + amount
+        var newLevel = current.level
+        while (newExp >= newLevel * 100) {
+            newExp -= (newLevel * 100)
+            newLevel++
         }
+        try {
+            supabase.postgrest["profiles"].update({ 
+                set("exp", newExp)
+                set("level", newLevel)
+            }) { filter { eq("id", userId) } }
+            _userProfile.value = current.copy(exp = newExp, level = newLevel)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    suspend fun updateGems(userId: String, newGems: Int) = withContext(Dispatchers.IO) {
+        try {
+            supabase.postgrest["profiles"].update({ set("gems", newGems) }) { filter { eq("id", userId) } }
+            _userProfile.value = _userProfile.value?.copy(gems = newGems)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    suspend fun addCardBack(userId: String, backId: String) = withContext(Dispatchers.IO) {
+        try {
+            supabase.postgrest["user_card_backs"].insert(UserCardBack(userId, backId))
+            _ownedCardBacks.value = _ownedCardBacks.value + backId
+        } catch (e: Exception) { e.printStackTrace() }
     }
 }
