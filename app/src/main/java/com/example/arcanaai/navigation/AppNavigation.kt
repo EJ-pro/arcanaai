@@ -33,19 +33,18 @@ fun AppNavigationGraph(navController: NavHostController) {
         exitTransition = { fadeOut(animationSpec = tween(400)) }
     ) {
         composable(Routes.SPLASH) {
-            SplashScreen(onNavigateToMain = {
-                com.kakao.sdk.user.UserApiClient.instance.me { user, error ->
-                    if (user != null) {
-                        navController.navigate(BottomNavItem.Sanctuary.route) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
-                        }
-                    } else {
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
-                        }
+            SplashScreen(
+                onNavigateToMain = {
+                    navController.navigate(BottomNavItem.Sanctuary.route) {
+                        popUpTo(Routes.SPLASH) { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 }
-            })
+            )
         }
 
         composable(Routes.LOGIN) {

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +48,7 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     var showGemPurchaseDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) } // 👈 로그아웃 확인 다이얼로그 상태냥!
 
     // 로그아웃 이벤트 감지냥!
     LaunchedEffect(viewModel.logoutEvent) {
@@ -60,6 +62,29 @@ fun SettingsScreen(
                 viewModel.addGems(amount)
                 showGemPurchaseDialog = false
                 Toast.makeText(context, "수정 $amount 개가 충전되었습니다냥! ✨", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // 💡 로그아웃 확인 다이얼로그냥!
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("로그아웃", color = Color.White) },
+            text = { Text("정말 로그아웃 하시겠습니까?", color = Color.LightGray) },
+            containerColor = Color(0xFF1A1A2E),
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    viewModel.logout()
+                }) {
+                    Text("로그아웃", color = Color(0xFFFFD700))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("취소", color = Color.Gray)
+                }
             }
         )
     }
@@ -153,8 +178,14 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                     ListItem(
                         headlineContent = { Text("로그아웃", color = Color.LightGray) },
-                        leadingContent = { Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Gray) },
-                        modifier = Modifier.clickable { viewModel.logout() },
+                        leadingContent = { 
+                            Icon(
+                                Icons.AutoMirrored.Filled.Logout, // 👈 최신 아이콘 적용냥!
+                                contentDescription = null, 
+                                tint = Color.Gray
+                            ) 
+                        },
+                        modifier = Modifier.clickable { showLogoutDialog = true }, // 👈 다이얼로그 띄우기냥!
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }

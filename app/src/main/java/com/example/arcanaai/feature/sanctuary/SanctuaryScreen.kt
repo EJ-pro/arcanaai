@@ -4,37 +4,36 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.arcanaai.R
 import com.example.arcanaai.data.model.CatMaster
 import com.example.arcanaai.feature.altar.GemPurchaseDialog
-import kotlin.math.absoluteValue
-import androidx.compose.ui.util.lerp
 
 data class ConsultationTopic(
     val id: String,
@@ -52,38 +51,14 @@ fun SanctuaryScreen(
 ) {
     val catMasters by viewModel.catMasters.collectAsState()
     val activeCatId by viewModel.activeCatId.collectAsState()
-    val pagerState = rememberPagerState(pageCount = { catMasters.size })
     val userName by viewModel.userName.collectAsState()
     val userGems by viewModel.userGems.collectAsState()
     val catMessage by viewModel.catMessage.collectAsState()
 
     val context = LocalContext.current
-    var showUnlockDialog by remember { mutableStateOf(false) }
-    var selectedCatToUnlock by remember { mutableStateOf<CatMaster?>(null) }
-    
     var showGemPurchaseDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState.currentPage) {
-        viewModel.onCatPagerChanged(pagerState.currentPage)
-    }
-
-    if (showUnlockDialog && selectedCatToUnlock != null) {
-        AlertDialog(
-            onDismissRequest = { showUnlockDialog = false },
-            title = { Text(text = "마스터 해금", color = Color.White) },
-            text = { Text("${selectedCatToUnlock!!.name}를 해금하시겠습니까?\n(💎 100개가 소모됩니다)", color = Color.White) },
-            containerColor = Color(0xFF1A1A2E),
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.unlockCat(selectedCatToUnlock!!.id)
-                    showUnlockDialog = false
-                }) { Text("해금하기", color = Color(0xFFFFD700)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUnlockDialog = false }) { Text("취소", color = Color.Gray) }
-            }
-        )
-    }
+    val activeMaster = catMasters.find { it.id == activeCatId } ?: catMasters.firstOrNull()
 
     if (showGemPurchaseDialog) {
         GemPurchaseDialog(
@@ -115,94 +90,73 @@ fun SanctuaryScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp),
+            horizontalAlignment = Alignment.CenterHorizontally // 👈 전체 중앙 정렬냥!
         ) {
             item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 💬 마스터의 한마디 (중앙 정렬 텍스트냥!)
                     Surface(
                         color = Color.White,
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         Text(
                             text = catMessage,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            fontSize = 13.sp, color = Color.Black
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                            fontSize = 14.sp, 
+                            color = Color.Black,
+                            textAlign = TextAlign.Center // 👈 텍스트 내부 중앙 정렬냥!
                         )
                     }
 
-                    Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
-                        HorizontalPager(state = pagerState) { page ->
-                            val cat = catMasters[page]
-                            CatMasterCard(
-                                cat = cat,
-                                isLocked = cat.isLocked,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
-                                        alpha = lerp(0.4f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
-                                        scaleX = lerp(0.8f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
-                                        scaleY = lerp(0.8f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
-                                    }
+                    // 🐱 마스터 원형 이미지 (중앙 배치냥!)
+                    activeMaster?.let { master ->
+                        Box(
+                            modifier = Modifier
+                                .size(220.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF31315F).copy(alpha = 0.5f))
+                                .border(2.dp, Color(0xFFFFD700), CircleShape)
+                                .clickable { viewModel.onCharacterTouched() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = master.imageRes),
+                                contentDescription = master.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
                         }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = master.name,
+                            color = Color(0xFFFFD700),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center // 👈 이름 중앙 정렬냥!
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    val currentCat = catMasters[pagerState.currentPage]
-                    val isSelected = activeCatId == currentCat.id
-
-                    Button(
-                        onClick = {
-                            if (currentCat.isLocked) {
-                                selectedCatToUnlock = currentCat
-                                showUnlockDialog = true
-                            } else if (!isSelected) {
-                                viewModel.selectCat(currentCat.id)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(0.6f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (currentCat.isLocked) Color(0xFF444444) 
-                                            else if (isSelected) Color(0xFF2E7D32) 
-                                            else Color(0xFFFFD700)
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                        enabled = !isSelected || currentCat.isLocked
-                    ) {
-                        if (currentCat.isLocked) {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("💎 100개로 해금")
-                        } else if (isSelected) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("선택됨 ✨")
-                        } else {
-                            Text("이 마스터 선택하기", color = Color.Black, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Row(modifier = Modifier.padding(vertical = 12.dp)) {
-                        repeat(catMasters.size) { iteration ->
-                            val color = if (pagerState.currentPage == iteration) Color(0xFFFFD700) else Color.Gray
-                            Box(modifier = Modifier.padding(3.dp).clip(CircleShape).background(color).size(8.dp))
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "신비로운 타로 카드 점",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 8.dp, bottom = 16.dp)
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "신비로운 타로 카드 점",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 16.dp).align(Alignment.Start)
+                    )
+                }
             }
 
             val topics = listOf(
@@ -213,7 +167,7 @@ fun SanctuaryScreen(
             )
 
             val chunkedTopics = topics.chunked(2)
-            items(chunkedTopics) { rowItems: List<ConsultationTopic> ->
+            items(chunkedTopics) { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -228,19 +182,23 @@ fun SanctuaryScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "마스터와 1:1 대화 (챗봇)",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 8.dp, bottom = 16.dp)
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "마스터와 1:1 대화 (챗봇)",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 16.dp).align(Alignment.Start)
+                    )
 
-                ChatbotButton(
-                    catName = catMasters[pagerState.currentPage].name,
-                    onClick = { onNavigateToChat("chatbot", activeCatId) }
-                )
+                    activeMaster?.let { master ->
+                        ChatbotButton(
+                            catName = master.name,
+                            onClick = { onNavigateToChat("chatbot", activeCatId) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -270,7 +228,7 @@ fun ChatbotButton(catName: String, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Chat,
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
                     contentDescription = null,
                     tint = Color(0xFFFFD700),
                     modifier = Modifier.size(24.dp)
@@ -292,7 +250,7 @@ fun ChatbotButton(catName: String, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.weight(1f))
             Icon(
-                imageVector = Icons.Default.ArrowForwardIos,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = null,
                 tint = Color.Gray,
                 modifier = Modifier.size(16.dp)
@@ -328,19 +286,6 @@ fun TopHeaderBar(userName: String, gems: Int, onGemClick: () -> Unit) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
             }
         }
-    }
-}
-
-@Composable
-fun CatMasterCard(cat: CatMaster, isLocked: Boolean, modifier: Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Image(
-            painter = painterResource(id = cat.imageRes),
-            contentDescription = cat.name,
-            modifier = Modifier
-                .fillMaxHeight()
-                .then(if (isLocked) Modifier.blur(12.dp) else Modifier)
-        )
     }
 }
 

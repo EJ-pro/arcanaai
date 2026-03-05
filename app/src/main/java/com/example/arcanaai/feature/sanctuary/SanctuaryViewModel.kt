@@ -34,7 +34,8 @@ class SanctuaryViewModel @Inject constructor(
     private val _catMasters = MutableStateFlow(listOf(
         CatMaster("arcana", "아르카나", "신비로운 보랏빛 고양이", R.drawable.char_cat_default, listOf(Color(0xFF0F0C29), Color(0xFF302B63)), false),
         CatMaster("nero", "네로", "밤의 기운을 담은 검은 고양이", R.drawable.char_nero_default, listOf(Color(0xFF141E30), Color(0xFF243B55)), true),
-        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)), true)
+        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)), true),
+        CatMaster("White", "화이트", "화이트 고양이", R.drawable.char_cat_white, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)))
     ))
     
     val catMasters = combine(_catMasters, userRepository.unlockedMasters) { masters, unlockedIds ->

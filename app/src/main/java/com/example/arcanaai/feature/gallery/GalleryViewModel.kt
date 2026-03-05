@@ -48,14 +48,15 @@ class GalleryViewModel @Inject constructor(
     private val _allMasters = listOf(
         CatMaster("arcana", "아르카나", "신비로운 보랏빛 고양이", R.drawable.char_cat_default, listOf(Color(0xFF0F0C29), Color(0xFF302B63))),
         CatMaster("nero", "네로", "밤의 기운을 담은 검은 고양이", R.drawable.char_nero_default, listOf(Color(0xFF141E30), Color(0xFF243B55))),
-        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E)))
+        CatMaster("leo", "레오", "태양의 가호를 받는 황금 고양이", R.drawable.char_leo_default, listOf(Color(0xFFED8F03), Color(0xFFFFB75E))),
+        CatMaster("white", "화이트", "순수한 눈꽃 고양이", R.drawable.char_cat_white, listOf(Color(0xFFFFFFFF), Color(0xFFE0E0E0))) // 👈 White 추가냥!
     )
 
-    val cardBacks = userRepository.ownedCardBacks.map { ownedIds ->
+    val cardBacks = combine(userRepository.ownedCardBacks, userProfile) { ownedIds, _ ->
         _allCardBacks.map { it.copy(isOwned = ownedIds.contains(it.id) || it.id == "default") }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _allCardBacks)
 
-    val catMasters = userRepository.unlockedMasters.map { unlockedIds ->
+    val catMasters = combine(userRepository.unlockedMasters, userProfile) { unlockedIds, _ ->
         _allMasters.map { it.copy(isLocked = !unlockedIds.contains(it.id)) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _allMasters)
 
@@ -72,25 +73,32 @@ class GalleryViewModel @Inject constructor(
         }
     }
 
-    // 👕 마스터 장착냥!
     fun equipMaster(masterId: String) {
         val profile = userProfile.value ?: return
+        val isUnlocked = userRepository.unlockedMasters.value.contains(masterId) || masterId == "arcana"
+        if (!isUnlocked) return
+
         viewModelScope.launch {
             userRepository.updateEquippedMaster(profile.id, masterId)
+            userRepository.refreshUserData(profile.id)
         }
     }
 
-    // 🎴 카드 뒷면 장착냥!
     fun equipCardBack(backId: String) {
         val profile = userProfile.value ?: return
+        val isOwned = userRepository.ownedCardBacks.value.contains(backId) || backId == "default"
+        if (!isOwned) return
+
         viewModelScope.launch {
             userRepository.updateEquippedBack(profile.id, backId)
+            userRepository.refreshUserData(profile.id)
         }
     }
 
     fun drawMaster() {
         val profile = userProfile.value ?: return
-        val lockMasters = catMasters.value.filter { it.isLocked }
+        val lockMasters = _allMasters.filter { master -> !userRepository.unlockedMasters.value.contains(master.id) }
+        
         if (profile.gems < 300 || _isGachaRunning.value || lockMasters.isEmpty()) return
         viewModelScope.launch {
             userRepository.updateGems(profile.id, profile.gems - 300)
@@ -99,6 +107,7 @@ class GalleryViewModel @Inject constructor(
             delay(2000)
             val result = lockMasters.random()
             userRepository.unlockMaster(profile.id, result.id)
+            userRepository.refreshUserData(profile.id)
             _gachaResult.value = result
             _isGachaRunning.value = false
         }
@@ -106,7 +115,8 @@ class GalleryViewModel @Inject constructor(
 
     fun drawCardBack() {
         val profile = userProfile.value ?: return
-        val unownedCards = cardBacks.value.filter { !it.isOwned }
+        val unownedCards = _allCardBacks.filter { back -> !userRepository.ownedCardBacks.value.contains(back.id) && back.id != "default" }
+        
         if (profile.gems < 300 || _isGachaRunning.value || unownedCards.isEmpty()) return
         viewModelScope.launch {
             userRepository.updateGems(profile.id, profile.gems - 300)
@@ -115,6 +125,7 @@ class GalleryViewModel @Inject constructor(
             delay(2000)
             val result = unownedCards.random()
             userRepository.addCardBack(profile.id, result.id)
+            userRepository.refreshUserData(profile.id)
             _gachaResult.value = result
             _isGachaRunning.value = false
         }
